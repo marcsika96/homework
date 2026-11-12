@@ -18,6 +18,9 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 2.2: `llm.py` (model factory, `call_structured`, `add_usage`), `scripts/check_llm.py`, `tests/test_llm.py`. |
 | 2026-11-12 | Claude Code | Exercise 2.3: `prompts.py` (system prompt, `render_diff`, `load_rules`), `baseline.py`, their tests; found that `gemini-3.8-flash` was unavailable and compared the other Gemini models. |
 | 2026-11-12 | Claude Code | Exercise 3.1: `tools.py` with `read_file`, `search_code`, `list_files` and `is_readable`; `scripts/try_baseline.py`; first tests in `tests/test_tools.py`. |
+| 2026-11-12 | Ollama (`qwen2.5-coder:7b`) | Ran the baseline on one dev unit with `scripts/try_baseline.py` to try the key-free path. |
+| 2026-11-12 | Claude Code | Exercise 3.2: hardening tests for the tools in `tests/test_tools.py`; binary files are now reported instead of shown. |
+
 
 ## Decisions
 
@@ -44,6 +47,12 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: `read_file` has `end_line: int = 0`, where 0 means "up to 200 lines from `start_line`" (the plan has `end_line = MAX_LINES`). With a fixed default of 200, a call with only `start_line=250` would be an invalid range.
 - 2026-11-12: `is_readable` deny list (file name, in any folder): `.env`, `.env.*` except `.env.example`, `*.pem`, `*.key`, `*.p12`, `id_rsa*`. Denied files are not read, not shown in search hits and not listed. Nothing in the target matches today.
 
+## The reviewed code is untrusted input (for the README architecture section)
+
+The code under review is written by someone else (here: by AI agents), and a comment or string in it could tell the model to ignore its rules. The tools limit what such an injection can achieve: they can only read tracked files of one fixed commit, so the model cannot change or run anything, cannot leave the repository, cannot read files on the deny list, and cannot reach code from a later commit. The worst outcome is a wrong or missing finding in the report, which the self-check and the developer reading the report can still catch.
+
+Tested in `tests/test_tools.py` on the fixture repository, without network or the cloned target: paths outside the repository, files from a later commit, the working tree, invalid regular expressions, bad line ranges, deny-listed files, output limits, and arguments that look like git options.
+
 ## Baseline checkpoint (dev units, prompt version 1, `gemini-3.5-flash`)
 
 | Unit | Findings | Latency | Input tokens | Output tokens |
@@ -53,6 +62,9 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | `I3:app/studio/database/classes.py` | 1 | 64.2 s | 6,306 | 4,061 |
 
 The one finding (lines 52–54, `logic`, high): `ends_at` adds a duration to the `starts_at` datetime but declares `output_field=DurationField()`; the fix is `DateTimeField()`. It is inside the file and on added lines. I have not yet confirmed it by running the code.
+
+- 2026-11-12: Same unit and prompt (version 1) on the local model: `I3:app/studio/database/classes.py` with `qwen2.5-coder:7b` through Ollama took 558.5 s, used 5,984 input and 8 output tokens, and returned no findings. `gemini-3.5-flash` took 64.2 s on this unit and reported the `DurationField` defect at lines 52–54. The free path works, but on my laptop it is about nine times slower and missed the defect, so the evaluation runs on Gemini and Ollama stays the key-free fallback.
+
 
 ## Problems
 

@@ -72,7 +72,10 @@ def make_tools(repo: GitRepo, sha: str) -> list:
             if end_line < start_line:
                 return f"Invalid line range {start_line}-{end_line}. end_line must not be smaller than start_line."
             try:
-                lines = repo.read(sha, path).splitlines()
+                text = repo.read(sha, path)
+                if "\0" in text:
+                    return f"{path} is a binary file and cannot be shown."
+                lines = text.splitlines()
             except PathNotFound:
                 if repo.ls(sha, path):
                     return f"{path} is a directory. Use list_files to see its files."
