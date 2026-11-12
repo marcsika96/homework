@@ -673,11 +673,6 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
   <li>A node returns only the keys it changes. Keys without a reducer are overwritten; <code>messages</code>, <code>trace</code> and <code>checked</code> are appended to because of their <code>Annotated</code> reducers.</li>
   <li>Passing the model, the repository and the commit into <code>build_graph</code> keeps the nodes free of globals, and lets the tests in 4.5 inject a fake model.</li>
 </ul>
-<aside class="note">
-  <p class="note-label">Notes file</p>
-  <p>Which two state keys would break if you removed their reducer, and how would the failure show? You need the answer in 4.3, and it is good material for the video.</p>
-</aside>
-
 <div class="ex-head"><h3 id="ex-4-2">Exercise 4.2 &ndash; The look-up loop with a budget</h3><label class="done"><input type="checkbox" id="done-4-2" data-ex> Done</label></div>
 <div class="code"><pre class="cb py"><code>    def lookup(state: ReviewState) -> dict:
         """Step 2a. The model either asks for tools or says it has enough context."""
@@ -742,6 +737,10 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
 <aside class="note check">
   <p class="note-label">Checkpoint</p>
   <p>Stream one dev unit again. After <code>write_findings</code> you see one <code>verify_finding</code> update per draft finding, then a single <code>finalize</code>. <code>len(findings) + len(dropped) == len(draft)</code>.</p>
+</aside>
+<aside class="note">
+  <p class="note-label">Notes file</p>
+  <p>Which two state keys would break if you removed their reducer, and how would the failure show? You need the answer in 4.3, and it is good material for the video.</p>
 </aside>
 
 <div class="ex-head"><h3 id="ex-4-4">Exercise 4.4 &ndash; Retries, usage, and the diagram</h3><label class="done"><input type="checkbox" id="done-4-4" data-ex> Done</label></div>

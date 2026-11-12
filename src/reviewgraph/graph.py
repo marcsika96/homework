@@ -53,6 +53,30 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
             "messages": messages
         }
 
+    def lookup(state: ReviewState) -> dict:
+        """Step 2a. The model either asks for tools or says it has enough context."""
+        # TODO: lookup_model.invoke(state["messages"]) -> {"messages": [ai_message]}
+        ai_message=lookup_model.invoke(state["messages"])
+        return {
+            "messages": [ai_message],
+        }
+
+
+    # def run_tools(state: ReviewState) -> dict:
+        """Step 2b. Execute the requested tool calls while budget remains."""
+        # TODO: for each call in state["messages"][-1].tool_calls:
+        #         budget left -> tools_by_name[call["name"]].invoke(call) gives a ToolMessage
+        #         no budget   -> ToolMessage(content="Tool budget used up.", tool_call_id=call["id"])
+        #       return the messages, the new tool_calls_used and one trace entry per call
+
+    # def after_lookup(state: ReviewState) -> Literal["run_tools", "write_findings"]:
+    #     # TODO
+
+    # def after_tools(state: ReviewState) -> Literal["lookup", "write_findings"]:
+    #     # TODO
+
+
+
     builder = StateGraph(ReviewState)
     builder.add_node("load_context", load_context)
     builder.add_edge(START, "load_context")
