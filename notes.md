@@ -13,6 +13,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 0.4: wrote `scripts/get_target.py`, worked out which of the 12 commits in the range are the eight increment commits. |
 | 2026-11-12 | Claude Code | Exercise 1.1: filled in `GitRepo` in `gitrepo.py`, wrote the tiny-repository fixture and `tests/test_gitrepo.py`. |
 | 2026-11-12 | Claude Code | Exercise 1.2: `Unit`, `is_reviewable` and `build_units` in `schemas.py`, `scripts/build_units.py`, `tests/test_units.py`. |
+| 2026-11-12 | Claude Code | Exercise 1.3: checksum test in `tests/test_dataset.py`, first version of `DATA.md`, searched the target's history for committed secrets. |
 
 ## Decisions
 
@@ -23,6 +24,9 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: `GitRepo` differs from the plan's suggested git commands in two places. `diff` uses `git diff-tree -p --root` instead of `git diff <sha>^ <sha>`, because the latter fails on a commit without a parent. `read` uses `git cat-file blob` instead of `git show`, because `git show <sha>:<folder>` prints a folder listing instead of failing. Every method first resolves the SHA, so an unknown commit always raises `UnknownCommit`.
 - 2026-11-12: Unit rules as implemented in `is_reviewable`: path starts with `app/studio/`, ends with `.py`, is not under `migrations/`, and the file name does not start with `seed_` (`seed_data.py`, `management/commands/seed_demo.py`). A unit needs at least 15 added lines as counted by `git diff-tree --numstat` against the parent commit; renames are not followed. Result: 26 dev units (I1: 9, I2: 8, I3: 9) and 36 test units (I4: 6, I5: 10, I6: 3, I7: 7, I8: 10), which matches the corrected specification. None of the increment commits changes a migration or seed file, so the exclusions do not remove anything at the moment.
 - 2026-11-12: `.gitattributes` forces LF line endings for `data/*.json` and `data/*.jsonl`, so the checksum of the test set is the same on Windows and Linux.
+- 2026-11-12: Test set frozen in commit `ddc21c7`. SHA-256 of `data/units_test.jsonl`: `50e9c9dfd58b5f3c577414a4def7d423d4ae634db19e2563384703043526d5de`. From now on I do not open the diffs of test units; I only see them through the finished system.
+- 2026-11-12: Dev units checked by file name and size (26 files, 15 to 218 added lines, files of 18 to 298 lines): all are application modules under `backend/`, `database/`, `system/`, `usecases/`, plus `forms.py`, `context_processors.py`, a template tag module and one management command. No generated or vendored file.
+- 2026-11-12: Secrets in the target: none found in the whole history. `.env` was never committed; `.env.example` has placeholders; `app/dsw/settings.py` reads secrets with `env(...)`; passwords in `app/tests/` and `seed_demo.py` are demo values. For `is_readable()` in Part 3 a deny list is still worth having as a safeguard (`.env*`, `*.pem`, `*.key`), although nothing matches it today.
 
 ## Problems
 
