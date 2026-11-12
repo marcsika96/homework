@@ -20,6 +20,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 3.1: `tools.py` with `read_file`, `search_code`, `list_files` and `is_readable`; `scripts/try_baseline.py`; first tests in `tests/test_tools.py`. |
 | 2026-11-12 | Ollama (`qwen2.5-coder:7b`) | Ran the baseline on one dev unit with `scripts/try_baseline.py` to try the key-free path. |
 | 2026-11-12 | Claude Code | Exercise 3.2: hardening tests for the tools in `tests/test_tools.py`; binary files are now reported instead of shown. |
+| 2026-11-12 | Claude Code | Exercise 4.1: reviewed my load_context (found two calls with missing arguments), explained how to run a single node. |
 
 
 ## Decisions
