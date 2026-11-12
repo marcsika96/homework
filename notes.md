@@ -15,6 +15,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 1.2: `Unit`, `is_reviewable` and `build_units` in `schemas.py`, `scripts/build_units.py`, `tests/test_units.py`. |
 | 2026-11-12 | Claude Code | Exercise 1.3: checksum test in `tests/test_dataset.py`, first version of `DATA.md`, searched the target's history for committed secrets. |
 | 2026-11-12 | Claude Code | Exercise 2.1: finding and result schemas and `clean_findings` in `schemas.py`, `tests/test_schemas.py`. |
+| 2026-11-12 | Claude Code | Exercise 2.2: `llm.py` (model factory, `call_structured`, `add_usage`), `scripts/check_llm.py`, `tests/test_llm.py`. |
 
 ## Decisions
 
@@ -29,6 +30,10 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: Dev units checked by file name and size (26 files, 15 to 218 added lines, files of 18 to 298 lines): all are application modules under `backend/`, `database/`, `system/`, `usecases/`, plus `forms.py`, `context_processors.py`, a template tag module and one management command. No generated or vendored file.
 - 2026-11-12: Secrets in the target: none found in the whole history. `.env` was never committed; `.env.example` has placeholders; `app/dsw/settings.py` reads secrets with `env(...)`; passwords in `app/tests/` and `seed_demo.py` are demo values. For `is_readable()` in Part 3 a deny list is still worth having as a safeguard (`.env*`, `*.pem`, `*.key`), although nothing matches it today.
 - 2026-11-12: `clean_findings(findings, file_text, path)` takes the reviewed path as a third argument (the plan lists two), because it has to set `file` to that path. Lines outside the file are moved to the nearest valid line instead of dropping the finding; whether the finding is right is for the self-check and the judge to decide.
+- 2026-11-12: Retry layer for API errors: the chat model's own `max_retries=3` (Gemini), nothing else. When Part 4 adds a LangGraph `RetryPolicy` on the nodes, it must not retry API errors as well, or the attempts multiply. Ollama has no retry: a local connection error does not go away by waiting.
+- 2026-11-12: `call_structured` returns `(parsed, raw_messages)` with one raw message per attempt, not a single raw message as in the plan. With a retry there are two LLM calls, and both have to be counted for the cost numbers. `StructuredOutputError` carries the raw messages for the same reason. `add_usage(stats, raw_messages)` does the counting.
+- 2026-11-12: Checked on one Gemini call (`scripts/check_llm.py`, `gemini-3.8-flash`): `usage_metadata` was `input_tokens` 48, `output_tokens` 564, `output_token_details.reasoning` 447. So thinking tokens are included in `output_tokens` (117 visible + 447 thinking), and they were about 80% of the output here. Cost has to be computed from `output_tokens` as it is. Ollama (`qwen2.5-coder:7b`) reported 53 input and 95 output tokens for the same prompt.
+- 2026-11-12: One rate limiter is shared by all Gemini models in the process (`get_rate_limiter` is cached), so reviewer and judge together stay under `REQUESTS_PER_MINUTE`.
 
 ## Problems
 
