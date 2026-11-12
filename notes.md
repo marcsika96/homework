@@ -16,6 +16,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 
 - 2026-11-12: There is no template repository, so the repository was created with `git init` in this folder. Work happens directly on `main` instead of a `solution` branch.
 - 2026-11-12: Python 3.12.7 (x64) in `.venv`. `requirements.txt` is a `pip freeze` of an install constrained by the lab 3 requirements file, so shared packages have the lab versions: langchain 1.4.2, langchain-core 1.6.5, langgraph 1.2.12, langchain-ollama 1.1.0, pydantic 2.13.5, google-genai 2.25.0. Packages the lab file does not contain: langchain-google-genai 4.4.0 (no conflict with langchain-core 1.6.5), python-dotenv 1.2.4, pytest 9.2.0.
+- 2026-11-12: The range `29949a3..e594bc8` has 12 commits for 8 increments. `scripts/get_target.py` lists the eight increment commits explicitly: I5 is `19c7057` and I6 is `5cad1b2`, the first commit of each, which contains the generated code. Not increments: `2be6655` and `e1e3f63` (I5 follow-ups), `13680ed` (prep for I6), `807a50a` ("i6 done", no change under `app/studio/`).
+- 2026-11-12: On my machine `TARGET_REPO_PATH` points to my existing checkout (`C:/Work/dance-studio-webapp`), so the script only fetches. With the default `data/target` it clones. Nothing reads or writes the working tree of the target.
 
 ## Problems
 
