@@ -1,0 +1,3 @@
+# Data files keep LF line endings on every platform, so their checksums are stable.
+data/*.json text eol=lf
+data/*.jsonl text eol=lf
