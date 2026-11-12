@@ -11,6 +11,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 0.2: created the venv, found why the lab constraints were ignored on my machine, produced `requirements.txt`. |
 | 2026-11-12 | Claude Code | Exercise 0.3: package skeleton, `pyproject.toml`, `.env.example`, filled in `get_settings()` in `config.py`, wrote `tests/test_config.py`. |
 | 2026-11-12 | Claude Code | Exercise 0.4: wrote `scripts/get_target.py`, worked out which of the 12 commits in the range are the eight increment commits. |
+| 2026-11-12 | Claude Code | Exercise 1.1: filled in `GitRepo` in `gitrepo.py`, wrote the tiny-repository fixture and `tests/test_gitrepo.py`. |
 
 ## Decisions
 
@@ -18,6 +19,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: Python 3.12.7 (x64) in `.venv`. `requirements.txt` is a `pip freeze` of an install constrained by the lab 3 requirements file, so shared packages have the lab versions: langchain 1.4.2, langchain-core 1.6.5, langgraph 1.2.12, langchain-ollama 1.1.0, pydantic 2.13.5, google-genai 2.25.0. Packages the lab file does not contain: langchain-google-genai 4.4.0 (no conflict with langchain-core 1.6.5), python-dotenv 1.2.4, pytest 9.2.0.
 - 2026-11-12: The range `29949a3..e594bc8` has 12 commits for 8 increments. `scripts/get_target.py` lists the eight increment commits explicitly: I5 is `19c7057` and I6 is `5cad1b2`, the first commit of each, which contains the generated code. Not increments: `2be6655` and `e1e3f63` (I5 follow-ups), `13680ed` (prep for I6), `807a50a` ("i6 done", no change under `app/studio/`).
 - 2026-11-12: On my machine `TARGET_REPO_PATH` points to my existing checkout (`C:/Work/dance-studio-webapp`), so the script only fetches. With the default `data/target` it clones. Nothing reads or writes the working tree of the target.
+- 2026-11-12: `GitRepo` differs from the plan's suggested git commands in two places. `diff` uses `git diff-tree -p --root` instead of `git diff <sha>^ <sha>`, because the latter fails on a commit without a parent. `read` uses `git cat-file blob` instead of `git show`, because `git show <sha>:<folder>` prints a folder listing instead of failing. Every method first resolves the SHA, so an unknown commit always raises `UnknownCommit`.
 
 ## Problems
 
