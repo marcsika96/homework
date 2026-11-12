@@ -1,0 +1,1085 @@
+<meta charset="utf-8">
+<title>ReviewGraph Build Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a lab handout. Sticky contents rail on the left, one reading column on the right,
+   exercises as open sections with a "Done" tick; only code and callouts get a surface. */
+:root {
+  --bg: #f5f7f6;
+  --surface: #ffffff;
+  --ink: #16211f;
+  --muted: #586a66;
+  --line: #d6dfdc;
+  --accent: #0b6b5f;
+  --accent-soft: #dff0ec;
+  --code-bg: #eaefed;
+  --code-ink: #1d2b28;
+  --comment: #6b7d79;
+  --todo: #9a4a00;
+  --info: #24589f;   --info-soft: #e4edf9;
+  --tip: #2a7437;    --tip-soft: #e3f2e5;
+  --warn: #8f5200;   --warn-soft: #fbefd9;
+  --check: #5f43a6;  --check-soft: #ece7f8;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101615; --surface: #171f1d; --ink: #e3ebe8; --muted: #9babA6; --line: #2a3633;
+    --accent: #5ecab6; --accent-soft: #16302b; --code-bg: #0c1211; --code-ink: #d5dfdc;
+    --comment: #7f918c; --todo: #f0b25e;
+    --info: #86b4f2; --info-soft: #15233a; --tip: #84d191; --tip-soft: #142a19;
+    --warn: #ecb25a; --warn-soft: #30230d; --check: #b9a2f2; --check-soft: #221b38;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101615; --surface: #171f1d; --ink: #e3ebe8; --muted: #9baba6; --line: #2a3633;
+  --accent: #5ecab6; --accent-soft: #16302b; --code-bg: #0c1211; --code-ink: #d5dfdc;
+  --comment: #7f918c; --todo: #f0b25e;
+  --info: #86b4f2; --info-soft: #15233a; --tip: #84d191; --tip-soft: #142a19;
+  --warn: #ecb25a; --warn-soft: #30230d; --check: #b9a2f2; --check-soft: #221b38;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
+.page {
+  display: grid; grid-template-columns: 15rem minmax(0, 46rem); gap: 3.5rem; justify-content: center;
+  padding-block: 2.5rem 5rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { min-width: 0; display: flex; flex-direction: column; gap: 1.1rem; }
+main > * { margin: 0; }
+
+/* contents rail */
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 1.5rem); align-self: start;
+  max-height: calc(100vh - 3rem); overflow-y: auto; font-size: 0.875rem; }
+.toc-title { font-family: var(--font-display); font-weight: 600; font-size: 0.75rem; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 0.6rem; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.toc a { display: block; padding: 0.28rem 0.5rem; color: var(--ink); text-decoration: none; border-radius: 4px; }
+.toc a:hover { background: var(--accent-soft); color: var(--accent); }
+.toc .sub a { padding-left: 1.25rem; color: var(--muted); font-size: 0.8125rem; }
+.progress { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); }
+.progress strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 0.5rem; overflow: hidden; }
+.bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
+
+/* type */
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.55rem; font-weight: 600; margin-top: 2.4rem; padding-top: 1.6rem; border-top: 1px solid var(--line); scroll-margin-top: 1rem; }
+h3 { font-size: 1.15rem; font-weight: 600; margin: 0; scroll-margin-top: 1rem; }
+h4 { font-size: 0.95rem; font-weight: 600; margin-top: 0.4rem; }
+.eyebrow { font-family: var(--font-display); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 1.1rem; color: var(--muted); }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+ul, ol { padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.3rem; }
+li > ul, li > ol { margin-top: 0.3rem; }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); color: var(--code-ink); padding: 0.1em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+.part-meta { color: var(--muted); font-size: 0.9rem; }
+
+/* exercise heading with tick */
+.ex-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.4rem 1rem; margin-top: 1.5rem; }
+.done { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.done input { width: 1rem; height: 1rem; accent-color: var(--accent); cursor: pointer; }
+.files { font-size: 0.85rem; color: var(--muted); }
+
+/* code blocks */
+.code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; position: relative; min-width: 0; }
+.code-file { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); padding: 0.45rem 0.9rem; border-bottom: 1px solid var(--line); }
+.code pre { margin: 0; padding: 0.9rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.55; color: var(--code-ink); tab-size: 4; }
+.code pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+.code .c { color: var(--comment); }
+.code .t { color: var(--todo); font-weight: 500; }
+.copy { position: absolute; top: 0.35rem; right: 0.35rem; font: 500 0.7rem var(--font-body); color: var(--muted); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 4px; padding: 0.15rem 0.5rem; cursor: pointer; }
+.copy:hover { color: var(--accent); border-color: var(--accent); }
+pre.mermaid { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1rem; overflow-x: auto; text-align: center; }
+
+/* callouts */
+.note { border-radius: 6px; padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.35rem; background: var(--info-soft); }
+.note > * { margin: 0; }
+.note-label { font-family: var(--font-display); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--info); }
+.note.tip { background: var(--tip-soft); }      .note.tip .note-label { color: var(--tip); }
+.note.warn { background: var(--warn-soft); }    .note.warn .note-label { color: var(--warn); }
+.note.check { background: var(--check-soft); }  .note.check .note-label { color: var(--check); }
+.note code { background: var(--surface); }
+
+/* tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--line); }
+th { font-family: var(--font-display); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.03em; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+@media (max-width: 960px) {
+  .page { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding-block: 1.5rem 4rem; }
+  .toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 1rem; }
+  .toc .sub { display: none; }
+  h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<div class="page">
+<nav class="toc" aria-label="Contents">
+  <p class="toc-title">Contents</p>
+  <ol>
+    <li><a href="#goal">Goal and structure</a></li>
+    <li><a href="#preparation">Preparation</a></li>
+    <li><a href="#part-0">Part 0 &ndash; Setup</a></li>
+    <li><a href="#part-1">Part 1 &ndash; Git access and review units</a></li>
+    <li><a href="#part-2">Part 2 &ndash; Schemas, models, baseline</a></li>
+    <li><a href="#part-3">Part 3 &ndash; Read-only tools</a></li>
+    <li><a href="#part-4">Part 4 &ndash; The LangGraph agent</a></li>
+    <li><a href="#part-5">Part 5 &ndash; CLI, reports, errors</a></li>
+    <li><a href="#part-6">Part 6 &ndash; Evaluation</a></li>
+    <li><a href="#part-7">Part 7 &ndash; Docs, video, pull request</a></li>
+    <li><a href="#stretch">Stretch goals</a></li>
+    <li><a href="#final-check">Final check</a></li>
+  </ol>
+  <div class="progress">
+    <span><strong id="done-count">0</strong> of <strong id="ex-count">0</strong> exercises done</span>
+    <div class="bar"><span id="bar-fill"></span></div>
+  </div>
+</nav>
+
+<main>
+<p class="eyebrow">VIAUMSMA001 &middot; Homework implementation guide</p>
+<h1>ReviewGraph Build Guide</h1>
+<p class="lede">A lab-style path from the specification to the <code>homework</code> pull request: eight parts, each split into exercises with a skeleton, the tasks, and a checkpoint that tells you when to move on.</p>
+
+<h2 id="goal">Goal and structure</h2>
+<p>You build ReviewGraph, a command-line agent that reviews one commit of the dance-studio repository with a LangGraph graph (read context, look up code with at most 8 tool calls, write findings, double-check each finding), then evaluate it against a single-prompt baseline on the 37 frozen test units.</p>
+<p>The parts follow the order in which things depend on each other. The estimates are rough; the rubric column shows where the points of the final submission come from.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Part</th><th>What you have at the end</th><th>Est.</th><th>Rubric (80 pts)</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#part-0">0 Setup</a></td><td>Repo, pinned environment, config, cloned target</td><td class="num">3 h</td><td>Working system (15)</td></tr>
+    <tr><td><a href="#part-1">1 Git and units</a></td><td>Read-only Git layer, 26 dev + 37 test units, frozen</td><td class="num">5 h</td><td>Data (8)</td></tr>
+    <tr><td><a href="#part-2">2 Baseline</a></td><td>Schemas, Gemini/Ollama factory, system B end to end</td><td class="num">5 h</td><td>Working system</td></tr>
+    <tr><td><a href="#part-3">3 Tools</a></td><td>Three read-only tools pinned to a commit</td><td class="num">4 h</td><td>Technical depth</td></tr>
+    <tr><td><a href="#part-4">4 Agent</a></td><td>System A as a LangGraph graph with loop and fan-out</td><td class="num">10 h</td><td>Technical depth (20)</td></tr>
+    <tr><td><a href="#part-5">5 CLI</a></td><td><code>reviewgraph review</code>, Markdown/JSON reports, error cases</td><td class="num">5 h</td><td>Working system</td></tr>
+    <tr><td><a href="#part-6">6 Evaluation</a></td><td>Cached runs, judge, hand check, metrics, failure cases</td><td class="num">14 h</td><td>Evaluation (15)</td></tr>
+    <tr><td><a href="#part-7">7 Submission</a></td><td>Docs, clean-machine run, video, pull request</td><td class="num">8 h</td><td>Video (10), Docs (7)</td></tr>
+  </tbody>
+</table></div>
+
+<h4>Suggested schedule</h4>
+<div class="table-wrap"><table>
+  <thead><tr><th>Dates (2026)</th><th>Work</th><th>Milestone</th></tr></thead>
+  <tbody>
+    <tr><td class="num">Wed 11 &ndash; Sun 15 Nov</td><td>Submit the specification in Moodle. Parts 0 and 1.</td><td>Specification deadline: Sun 15 Nov</td></tr>
+    <tr><td class="num">Mon 16 &ndash; Sun 22 Nov</td><td>Parts 2 and 3</td><td>Baseline reviews a dev unit with both providers</td></tr>
+    <tr><td class="num">Mon 23 &ndash; Sun 29 Nov</td><td>Parts 4 and 5</td><td><code>reviewgraph review</code> works on a real commit</td></tr>
+    <tr><td class="num">Mon 30 Nov &ndash; Sun 6 Dec</td><td>Part 6: tune on dev, freeze, run the test set once, hand check</td><td>Metrics table exists</td></tr>
+    <tr><td class="num">Mon 7 &ndash; Sun 13 Dec</td><td>Part 7, plus two days of slack</td><td>Final deadline: Sun 13 Dec</td></tr>
+  </tbody>
+</table></div>
+
+<aside class="note check">
+  <p class="note-label">Checkpoints</p>
+  <p>Where a lab asks for a screenshot, this guide has a checkpoint: a command to run and what you should see. Tick <em>Done</em> on the exercise when it passes. The ticks are stored in this browser only.</p>
+</aside>
+<aside class="note">
+  <p class="note-label">Notes file</p>
+  <p>Where a lab asks for a written answer, this guide asks for a line in <code>notes.md</code> in your repository. Those notes become <code>EVALUATION.md</code>, <code>DATA.md</code> and <code>AI_USAGE.md</code> in Part 7, so writing them as you go saves the last week.</p>
+</aside>
+<aside class="note warn">
+  <p class="note-label">Versions</p>
+  <p>The snippets target the lab 3 pins (<code>langchain</code> 1.4.2, <code>langgraph</code> 1.2.12). They are skeletons that were not executed in your environment. Where a signature matters, the text says to check it against <a href="https://docs.langchain.com/oss/python/langgraph/overview">the LangGraph documentation</a>. Pre-1.0 LangChain APIs stay banned here as in the lab.</p>
+</aside>
+
+<h2 id="preparation">Preparation</h2>
+<p>The specification leaves five small points open. Decide them now and write them into <code>notes.md</code>, because each one changes code or metrics later and none of them may change after the test run.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Open point</th><th>Suggested decision</th><th>Used in</th></tr></thead>
+  <tbody>
+    <tr><td>The fixed list of finding categories</td><td>At most eight, for example <code>authorization</code>, <code>transaction</code>, <code>model-rule</code>, <code>validation</code>, <code>error-handling</code>, <code>logic</code>, <code>project-rule</code>, <code>other</code>. Adjust on the dev units, then freeze.</td><td>2.1, 6.5</td></tr>
+    <tr><td>Does <code>review</code> skip files with fewer than 15 added lines?</td><td>No. The threshold defines evaluation units only; <code>review</code> covers every changed Python file under <code>app/studio/</code> except migrations and seed data.</td><td>1.2, 5.1</td></tr>
+    <tr><td>How <em>minor</em> verdicts enter precision</td><td>Leave them out of numerator and denominator and report their count next to precision. Whatever you choose, state the formula in <code>EVALUATION.md</code>.</td><td>6.5</td></tr>
+    <tr><td>Which findings are judged when a unit has more than three</td><td>High before medium, then the order in which the system reported them.</td><td>6.2</td></tr>
+    <tr><td>What counts as one of the 8 tool calls</td><td>Every executed tool call, also when one model message asks for several. Calls beyond the budget are answered with a refusal, not executed.</td><td>4.2</td></tr>
+  </tbody>
+</table></div>
+<p>How the objectives of the specification map to this guide:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Objective</th><th>Built in</th></tr></thead>
+  <tbody>
+    <tr><td>1 Review command with Markdown and JSON output</td><td>Parts 2, 5</td></tr>
+    <tr><td>2 Context through read-only tools at the reviewed commit, max 8 calls</td><td>Parts 1, 3, 4</td></tr>
+    <tr><td>3 Self-check of every finding</td><td>Exercise 4.3</td></tr>
+    <tr><td>4 Free path: Gemini free tier, Ollama, cached evaluation outputs</td><td>Exercises 2.2, 5.4, 6.1</td></tr>
+    <tr><td>5 <code>reviewgraph eval</code></td><td>Part 6</td></tr>
+    <tr><td>Error cases</td><td>Exercise 5.3</td></tr>
+  </tbody>
+</table></div>
+
+<!-- ===================== PART 0 ===================== -->
+<h2 id="part-0">Part 0 &ndash; Setup</h2>
+<p class="part-meta">A repository that installs from pinned requirements and knows where the review target is.</p>
+
+<div class="ex-head"><h3 id="ex-0-1">Exercise 0.1 &ndash; Repository and branch</h3><label class="done"><input type="checkbox" id="done-0-1" data-ex> Done</label></div>
+<ul>
+  <li>Create the homework repository the way the course's GitHub page describes. Keep <code>main</code> as it was created and do all work on a <code>solution</code> branch.</li>
+  <li>Add a <code>.gitignore</code> before the first commit: <code>.venv/</code>, <code>.env</code>, <code>__pycache__/</code>, <code>.pytest_cache/</code>, <code>*.egg-info/</code>, <code>data/target/</code>, <code>out/</code>.</li>
+  <li>Commit after every exercise with a message that says what now works. A meaningful history is part of the documentation points.</li>
+  <li>Start <code>notes.md</code> and an AI-usage log in it today: date, tool, what you used it for. This guide belongs in that log.</li>
+</ul>
+
+<div class="ex-head"><h3 id="ex-0-2">Exercise 0.2 &ndash; Pinned environment</h3><label class="done"><input type="checkbox" id="done-0-2" data-ex> Done</label></div>
+<p>The lab 3 requirements file pins LangChain and LangGraph but does not contain <code>langchain-google-genai</code>, <code>python-dotenv</code> or <code>pytest</code>. Install only what the project uses, with the lab file as a <em>constraints</em> file, so shared packages get exactly the lab versions and pip stops if a new package cannot live with them.</p>
+<div class="code"><pre class="cb sh"><code>python -m venv .venv
+.venv\Scripts\activate
+pip install -c https://raw.githubusercontent.com/VIAUMSMA001/laboratories/main/docs/laboratories/03-local-llm-integration/requirements.txt langchain langgraph langchain-ollama pydantic langchain-google-genai python-dotenv pytest
+pip check
+pip freeze --exclude-editable > requirements.txt</code></pre></div>
+<ul>
+  <li>Confirm with <code>pip list</code> that <code>langchain</code> is 1.4.2, <code>langgraph</code> 1.2.12, <code>langchain-ollama</code> 1.1.0 and <code>pydantic</code> 2.13.5, as the specification states.</li>
+  <li>If pip reports a conflict for <code>langchain-google-genai</code>, pick the newest release whose <code>langchain-core</code> requirement admits 1.6.5 and note the version you ended up with.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>python -c "import langgraph, langchain_google_genai, langchain_ollama; print('ok')"</code> prints <code>ok</code>, and <code>pip check</code> reports no broken requirements.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-0-3">Exercise 0.3 &ndash; Package skeleton and configuration</h3><label class="done"><input type="checkbox" id="done-0-3" data-ex> Done</label></div>
+<p>Target layout. Files appear as the parts need them; create the folders and empty <code>__init__.py</code> files now.</p>
+<div class="code"><pre class="cb"><code>README.md  VIDEO.md  DATA.md  EVALUATION.md  AI_USAGE.md  notes.md
+requirements.txt  pyproject.toml  .env.example  .gitignore
+docs/
+    architecture.md
+scripts/
+    get_target.py  build_units.py  sample_handcheck.py
+data/
+    increments.json
+    units_dev.jsonl  units_test.jsonl
+    runs/agent/  runs/baseline/
+    verdicts.jsonl  handcheck.csv
+src/reviewgraph/
+    __init__.py  __main__.py
+    config.py  gitrepo.py  schemas.py  llm.py  prompts.py
+    tools.py  baseline.py  graph.py  report.py  cli.py
+    evaluation/
+        runner.py  judge.py  metrics.py
+tests/</code></pre></div>
+<div class="code"><div class="code-file">pyproject.toml</div><pre class="cb toml"><code>[project]
+name = "reviewgraph"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[project.scripts]
+reviewgraph = "reviewgraph.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]</code></pre></div>
+<p>Dependencies stay in <code>requirements.txt</code>. The documented install is <code>pip install -r requirements.txt</code> followed by <code>pip install -e . --no-deps</code>, which creates the <code>reviewgraph</code> command.</p>
+<div class="code"><div class="code-file">.env.example</div><pre class="cb sh"><code># gemini or ollama
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.8-flash
+OLLAMA_MODEL=qwen2.5-coder:7b
+OLLAMA_BASE_URL=http://localhost:11434
+# where scripts/get_target.py clones from and to
+TARGET_REPO_URL=
+TARGET_REPO_PATH=data/target
+MAX_TOOL_CALLS=8
+REQUESTS_PER_MINUTE=10</code></pre></div>
+<div class="code"><div class="code-file">src/reviewgraph/config.py</div><pre class="cb py"><code>import os
+from functools import lru_cache
+from typing import Literal
+
+from dotenv import load_dotenv
+from pydantic import BaseModel
+
+
+class ConfigError(Exception):
+    """A setting is missing or invalid. The message names the environment variable."""
+
+
+class Settings(BaseModel):
+    llm_provider: Literal["gemini", "ollama"] = "gemini"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.8-flash"
+    ollama_model: str = "qwen2.5-coder:7b"
+    ollama_base_url: str = "http://localhost:11434"
+    target_repo_path: str = "data/target"
+    max_tool_calls: int = 8
+    requests_per_minute: float = 10
+
+
+@lru_cache
+def get_settings() -> Settings:
+    load_dotenv()
+    # TODO: build Settings from os.environ. Turn a pydantic ValidationError into a
+    #       ConfigError, so a typo in LLM_PROVIDER fails here and not inside a review.</code></pre></div>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>With <code>LLM_PROVIDER=gemni</code> in <code>.env</code>, <code>python -c "from reviewgraph.config import get_settings; get_settings()"</code> ends with a one-line <code>ConfigError</code> that names <code>LLM_PROVIDER</code>. First smoke test: <code>tests/test_config.py</code> asserts the same with <code>monkeypatch.setenv</code>.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-0-4">Exercise 0.4 &ndash; Fetch the review target</h3><label class="done"><input type="checkbox" id="done-0-4" data-ex> Done</label></div>
+<p class="files">File: <code>scripts/get_target.py</code></p>
+<ul>
+  <li>Clone <code>TARGET_REPO_URL</code> into <code>TARGET_REPO_PATH</code>. If the folder already exists, run <code>git fetch</code> instead.</li>
+  <li>After cloning, verify that both ends of the increment range (<code>29949a3</code> and <code>e594bc8</code>) resolve, and print a clear message if they do not or if the URL is empty.</li>
+  <li>Write the eight increment commits into <code>data/increments.json</code> as <code>{"I1": "&lt;full sha&gt;", ...}</code>. This file is committed; the clone is not.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>python scripts/get_target.py</code> twice in a row: the first run clones, the second says the target is up to date. <code>git status</code> in the homework repo shows no trace of <code>data/target/</code>.</p>
+</aside>
+
+<!-- ===================== PART 1 ===================== -->
+<h2 id="part-1">Part 1 &ndash; Git access and review units</h2>
+<p class="part-meta">Everything the reviewer and the evaluation know about the target comes through one read-only class. This part also produces the dataset.</p>
+
+<div class="ex-head"><h3 id="ex-1-1">Exercise 1.1 &ndash; Read-only Git layer</h3><label class="done"><input type="checkbox" id="done-1-1" data-ex> Done</label></div>
+<p>The specification promises that the agent sees the repository as it was at the reviewed commit and can never change it. The simplest way to make that true is to never read the working tree: every read goes through Git plumbing with an explicit commit.</p>
+<div class="code"><div class="code-file">src/reviewgraph/gitrepo.py</div><pre class="cb py"><code>import subprocess
+from pathlib import Path
+
+from pydantic import BaseModel
+
+
+class GitError(Exception): ...
+class UnknownCommit(GitError): ...
+class PathNotFound(GitError): ...
+
+
+class ChangedFile(BaseModel):
+    path: str
+    added: int
+    deleted: int
+
+
+class GitRepo:
+    """Read-only view of a repository. Never reads or writes the working tree."""
+
+    def __init__(self, path: str | Path):
+        # TODO: raise GitError if `path` is not inside a git repository
+        ...
+
+    def _git(self, *args: str) -> str:
+        """Run `git -C self.path ...` and return stdout as text."""
+        # TODO: argument list (no shell=True), timeout, encoding="utf-8", errors="replace";
+        #       raise GitError with git's stderr on a non-zero exit code
+        ...
+
+    def resolve(self, rev: str) -> str:
+        """Full SHA of `rev`; UnknownCommit if it does not name a commit."""
+        # TODO: git rev-parse --verify --quiet "&lt;rev&gt;^{commit}"
+
+    def changed_files(self, sha: str) -> list[ChangedFile]:
+        # TODO: git diff-tree --no-commit-id --numstat -r &lt;sha&gt;
+
+    def diff(self, sha: str, path: str, context: int = 10) -> str:
+        # TODO: git diff -U&lt;context&gt; &lt;sha&gt;^ &lt;sha&gt; -- &lt;path&gt;
+
+    def read(self, sha: str, path: str) -> str:
+        # TODO: git show &lt;sha&gt;:&lt;path&gt;; PathNotFound if the file does not exist at that commit
+
+    def ls(self, sha: str, prefix: str = "") -> list[str]:
+        # TODO: git ls-tree -r --name-only &lt;sha&gt; -- &lt;prefix&gt;
+
+    def grep(self, sha: str, pattern: str, pathspec: str = "app") -> list[str]:
+        # TODO: git grep -n -I -E -e &lt;pattern&gt; &lt;sha&gt; -- &lt;pathspec&gt;
+        #       exit code 1 means "no matches", not an error</code></pre></div>
+<ul>
+  <li>Accept only revisions that match <code>^[0-9a-fA-F]{4,40}$</code> before they reach Git. A value that starts with <code>-</code> would otherwise be read as an option.</li>
+  <li>Reject absolute paths and paths that contain <code>..</code>. Use forward slashes for Git paths on Windows too.</li>
+  <li>Binary files show up in <code>--numstat</code> as <code>-</code> instead of a number.</li>
+</ul>
+<h4>Tests without the private target</h4>
+<p>Reviewers must be able to run your tests without cloning anything. Build a tiny repository in a pytest fixture: <code>git init</code> in <code>tmp_path</code>, commit one with <code>app/studio/models.py</code> and <code>AGENTS.md</code>, commit two that changes the model and adds <code>app/studio/views.py</code>. Set <code>user.name</code> and <code>user.email</code> with <code>git -c</code> so the fixture works on a clean machine.</p>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>pytest tests/test_gitrepo.py</code> passes with at least these cases: an unknown SHA raises <code>UnknownCommit</code>; <code>read(first_sha, "app/studio/views.py")</code> raises <code>PathNotFound</code> although the file exists in the second commit; <code>grep</code> with no hit returns an empty list.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-1-2">Exercise 1.2 &ndash; Build the review units</h3><label class="done"><input type="checkbox" id="done-1-2" data-ex> Done</label></div>
+<p class="files">Files: <code>src/reviewgraph/schemas.py</code> (the <code>Unit</code> model), <code>scripts/build_units.py</code></p>
+<div class="code"><pre class="cb py"><code>class Unit(BaseModel):
+    id: str                      # "I5:app/studio/views/booking.py"
+    increment: str               # "I1" .. "I8"
+    commit: str                  # full SHA
+    path: str
+    added_lines: int
+    split: Literal["dev", "test"]
+
+
+def is_reviewable(path: str) -> bool:
+    """Python under app/studio/, not a migration, not seed data."""
+    # TODO: this function is shared by build_units.py and the review command
+
+
+def build_units(repo: GitRepo, increments: dict[str, str], min_added: int = 15) -> list[Unit]:
+    # TODO: I1-I3 -> "dev", I4-I8 -> "test"; sort by increment, then path</code></pre></div>
+<ul>
+  <li>Write one JSON object per line to <code>data/units_dev.jsonl</code> and <code>data/units_test.jsonl</code>.</li>
+  <li>Print a count per increment at the end of the script.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>The script prints 26 dev units and 37 test units, with I4: 6, I5: 11, I6: 3, I7: 7, I8: 10. If your numbers differ from the specification, find out which rule differs (renames, the seed-data pattern, how added lines are counted) and either fix the filter or record the corrected numbers and the reason in <code>notes.md</code>.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-1-3">Exercise 1.3 &ndash; Freeze the test set and start DATA.md</h3><label class="done"><input type="checkbox" id="done-1-3" data-ex> Done</label></div>
+<ul>
+  <li>Commit both unit files. Compute the SHA-256 of <code>units_test.jsonl</code> and add a test that fails if the file changes.</li>
+  <li>Write the first version of <code>DATA.md</code>: both sources from the specification with access, license, size, the unit rules, the per-increment counts and the freeze commit.</li>
+  <li>Look through the dev units by hand (file names and sizes only) to check that nothing odd slipped in, such as generated code or a vendored file. Do not open the test units' diffs: from now on you only see them through the finished system.</li>
+</ul>
+<aside class="note warn">
+  <p class="note-label">Secrets in the target</p>
+  <p>Git plumbing cannot see an untracked <code>.env</code>, but it can see anything that was committed. Check whether the target's history contains keys or passwords (a settings file, fixtures). The tools in Part 3 send what they read to Gemini and into cached traces that you publish in the homework repo, so put such paths on a deny list in <code>is_readable()</code>.</p>
+</aside>
+
+<!-- ===================== PART 2 ===================== -->
+<h2 id="part-2">Part 2 &ndash; Schemas, model factory, baseline</h2>
+<p class="part-meta">System B from the evaluation plan, end to end. It is small, and it gives you something to run before the agent exists.</p>
+
+<div class="ex-head"><h3 id="ex-2-1">Exercise 2.1 &ndash; Finding and result schemas</h3><label class="done"><input type="checkbox" id="done-2-1" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/schemas.py</div><pre class="cb py"><code>Category = Literal["authorization", "transaction", "model-rule", "validation",
+                   "error-handling", "logic", "project-rule", "other"]
+Severity = Literal["low", "medium", "high"]
+
+
+class Finding(BaseModel):
+    file: str = Field(description="Path of the reviewed file")
+    line_start: int = Field(description="First affected line, numbered as in the new version of the file")
+    line_end: int = Field(description="Last affected line; equal to line_start for a single line")
+    category: Category
+    severity: Severity
+    explanation: str = Field(description="What is wrong and what happens because of it")
+    fix: str = Field(description="The concrete change that removes the defect")
+
+
+class ReviewOutput(BaseModel):
+    """What the model returns. A wrapper, because structured output needs an object."""
+    findings: list[Finding]
+
+
+class Verification(BaseModel):
+    supported: bool = Field(description="True only if the quoted code really has the described defect")
+    reason: str
+
+
+class RunStats(BaseModel):
+    latency_s: float = 0
+    llm_calls: int = 0
+    tool_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+class ReviewResult(BaseModel):
+    unit_id: str
+    system: Literal["agent", "baseline"]
+    model: str
+    findings: list[Finding] = []
+    dropped: list[Finding] = []      # removed by the self-check (agent only)
+    trace: list[dict] = []           # tool calls and their arguments, for failure analysis
+    stats: RunStats = RunStats()
+    error: str | None = None</code></pre></div>
+<ul>
+  <li>Keep the model-facing schemas flat, with a description on every field. Small local models and Gemini's schema subset both cope better with flat objects than with nested optionals.</li>
+  <li>Write <code>clean_findings(findings, file_text)</code>: swap reversed line ranges, clamp lines to the length of the file, force <code>file</code> to the reviewed path. Models get line numbers wrong often enough that this belongs in code.</li>
+</ul>
+
+<div class="ex-head"><h3 id="ex-2-2">Exercise 2.2 &ndash; Model factory and structured calls</h3><label class="done"><input type="checkbox" id="done-2-2" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/llm.py</div><pre class="cb py"><code>from langchain_core.language_models import BaseChatModel
+from langchain_core.rate_limiters import InMemoryRateLimiter
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
+
+
+class StructuredOutputError(Exception): ...
+
+
+def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
+    """Chat model for LLM_PROVIDER, temperature 0."""
+    # TODO gemini: ChatGoogleGenerativeAI(model=..., api_key=..., temperature=0,
+    #              rate_limiter=InMemoryRateLimiter(requests_per_second=rpm / 60))
+    #      a missing key raises ConfigError naming GEMINI_API_KEY and LLM_PROVIDER=ollama
+    # TODO ollama: ChatOllama(model=..., base_url=..., temperature=0, num_ctx=16384)
+
+
+def call_structured(model: BaseChatModel, schema: type[BaseModel], messages: list):
+    """Return (parsed, raw_message). Retry once if the reply does not validate."""
+    # TODO: runnable = model.with_structured_output(schema, include_raw=True)
+    #       the result is a dict with "raw", "parsed" and "parsing_error"
+    #       on the second attempt append the parsing error to the messages
+    #       still invalid -> StructuredOutputError</code></pre></div>
+<ul>
+  <li>Pass the Gemini key explicitly from your settings, so the variable name in <code>.env.example</code> is the one that counts.</li>
+  <li>Ollama's default context window is small and it truncates silently. A diff plus <code>AGENTS.md</code> plus tool results will not fit unless you set <code>num_ctx</code>.</li>
+  <li>Decide on one retry layer for API errors. The chat models have their own <code>max_retries</code>, and Part 4 adds a LangGraph <code>RetryPolicy</code> on the nodes; if both are active, the attempts multiply. For the baseline, which has no graph, use the runnable's <code>.with_retry(...)</code> or the model's own setting.</li>
+  <li>Token usage comes from <code>raw.usage_metadata</code> (<code>input_tokens</code>, <code>output_tokens</code>). Check on one Gemini call whether thinking tokens are included in <code>output_tokens</code>; lab 3 showed that they are billed as output.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>A ten-line script asks each provider for a <code>ReviewOutput</code> about a three-line function with an obvious bug and prints the parsed finding and the token counts. Run it with <code>LLM_PROVIDER=gemini</code> and with <code>LLM_PROVIDER=ollama</code>.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-2-3">Exercise 2.3 &ndash; Prompts and the single-prompt baseline</h3><label class="done"><input type="checkbox" id="done-2-3" data-ex> Done</label></div>
+<p class="files">Files: <code>src/reviewgraph/prompts.py</code>, <code>src/reviewgraph/baseline.py</code></p>
+<ul>
+  <li><code>render_diff(repo, sha, path)</code>: present the change with the new-file line number in front of every line and a <code>+</code> marker on added lines. Models count lines in raw unified diffs badly, and your merge rule in Part 6 depends on line numbers.</li>
+  <li><code>load_rules(repo, sha)</code>: <code>AGENTS.md</code> as it was at the commit, or a short placeholder if the file did not exist yet.</li>
+  <li><code>REVIEW_SYSTEM_PROMPT</code>: role, what counts as a defect (behaviour changes, rule violations), the category list, the severity scale, and the instruction to return an empty list when nothing is wrong. Keep the prompts in one module with a <code>PROMPT_VERSION</code> string that you bump on every change.</li>
+  <li><code>review_baseline(repo, sha, path) -> ReviewResult</code>: one <code>call_structured</code> with rules and diff, timed with <code>time.perf_counter()</code>.</li>
+</ul>
+<aside class="note tip">
+  <p class="note-label">Fair comparison</p>
+  <p>Baseline and agent must share the system prompt, the rules text and the output schema. Then the only differences between A and B are the look-up loop and the self-check, which is what the evaluation claims to measure.</p>
+</aside>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>review_baseline</code> on one I1 dev unit returns a <code>ReviewResult</code> with <code>llm_calls == 1</code>, non-zero token counts and findings whose lines fall inside the file. Read the findings: are they about the changed lines?</p>
+</aside>
+
+<!-- ===================== PART 3 ===================== -->
+<h2 id="part-3">Part 3 &ndash; Read-only tools</h2>
+<p class="part-meta">Step 2 of the architecture needs something to call. The tools are thin wrappers around <code>GitRepo</code>, bound to one commit.</p>
+
+<div class="ex-head"><h3 id="ex-3-1">Exercise 3.1 &ndash; Three tools bound to a commit</h3><label class="done"><input type="checkbox" id="done-3-1" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/tools.py</div><pre class="cb py"><code>from langchain.tools import tool
+
+MAX_LINES = 200
+MAX_HITS = 40
+
+
+def make_tools(repo: GitRepo, sha: str) -> list:
+    """Tools that see the repository at `sha`. They return text and never raise."""
+
+    @tool
+    def read_file(path: str, start_line: int = 1, end_line: int = MAX_LINES) -> str:
+        """Read a file of the project as it was at the reviewed commit.
+
+        Returns the requested lines with their line numbers, at most 200 per call.
+        """
+        # TODO
+
+    @tool
+    def search_code(pattern: str, directory: str = "app") -> str:
+        """Search the project's code with a regular expression.
+
+        Returns up to 40 hits as `path:line: text`.
+        """
+        # TODO
+
+    @tool
+    def list_files(directory: str = "app/studio") -> str:
+        """List the files below a directory of the project."""
+        # TODO
+
+    return [read_file, search_code, list_files]</code></pre></div>
+<ul>
+  <li>The docstring and the type hints are the description the model sees, as in lab 3.5. Write them for the model: say what to pass and what comes back.</li>
+  <li>The closure over <code>repo</code> and <code>sha</code> keeps the commit out of the tool's arguments, so the model cannot ask for a later version of the code.</li>
+  <li>Every failure comes back as text the model can act on: <code>"No such file at this commit: app/studio/form.py. Did you mean app/studio/forms.py?"</code> is more useful to it than a traceback.</li>
+  <li>When output is cut, say so in the last line (<code>[truncated, 40 of 112 hits; narrow the pattern]</code>).</li>
+</ul>
+
+<div class="ex-head"><h3 id="ex-3-2">Exercise 3.2 &ndash; Harden and test the tools</h3><label class="done"><input type="checkbox" id="done-3-2" data-ex> Done</label></div>
+<p>The model decides what the tools receive. Test them directly with <code>tool.invoke({...})</code> on the fixture repository:</p>
+<ul>
+  <li><code>read_file("../../secrets.txt")</code> and an absolute path return a refusal.</li>
+  <li>A file that exists only in the later commit is reported as missing at the earlier one.</li>
+  <li>An invalid regular expression returns Git's error message as text.</li>
+  <li><code>start_line</code> beyond the end of the file, a negative value, and <code>end_line &lt; start_line</code> all return a short explanation.</li>
+  <li>A deny-listed path from Exercise 1.3 is refused.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>pytest tests/test_tools.py</code> passes, and no test needs a network connection or the cloned target.</p>
+</aside>
+<aside class="note">
+  <p class="note-label">Notes file</p>
+  <p>The reviewed code is untrusted input: a comment in it could tell the model to ignore its rules. Write two sentences on why read-only tools bound to one commit limit the damage. It fits the architecture section of the README.</p>
+</aside>
+
+<!-- ===================== PART 4 ===================== -->
+<h2 id="part-4">Part 4 &ndash; The LangGraph agent</h2>
+<p class="part-meta">The core of the homework and of the technical-depth points. The graph below is the specification of this part; your job is to wire it.</p>
+<pre class="mermaid">
+flowchart TD
+    S([START]) --> LC[load_context]
+    LC --> LU[lookup]
+    LU -->|tool calls, budget left| RT[run_tools]
+    LU -->|no tool calls| WF[write_findings]
+    RT -->|budget left| LU
+    RT -->|8 calls used| WF
+    WF -->|one Send per finding| VF[verify_finding]
+    WF -->|no findings| FI[finalize]
+    VF --> FI
+    FI --> E([END])
+</pre>
+<p>The four LangGraph abstractions you use, and where: a typed <strong>state</strong> with reducers (4.1), <strong>conditional edges</strong> that form a bounded loop (4.2), <strong><code>Send</code></strong> for a parallel fan-out with a reducer that collects the results (4.3), and per-node <strong>retry policies</strong> (4.4).</p>
+
+<div class="ex-head"><h3 id="ex-4-1">Exercise 4.1 &ndash; State and the first node</h3><label class="done"><input type="checkbox" id="done-4-1" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/graph.py</div><pre class="cb py"><code>import operator
+from typing import Annotated, Literal, TypedDict
+
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.types import RetryPolicy, Send
+
+
+class ReviewState(TypedDict, total=False):
+    # input
+    commit: str
+    path: str
+    # written by load_context
+    diff: str
+    rules: str
+    # look-up loop
+    messages: Annotated[list[AnyMessage], add_messages]
+    tool_calls_used: int
+    trace: Annotated[list[dict], operator.add]
+    # findings
+    draft: list[Finding]
+    checked: Annotated[list[dict], operator.add]
+    findings: list[Finding]
+    dropped: list[Finding]
+
+
+def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
+    tools = make_tools(repo, sha)
+    tools_by_name = {t.name: t for t in tools}
+    lookup_model = model.bind_tools(tools)
+
+    def load_context(state: ReviewState) -> dict:
+        """Step 1. No LLM call: read the diff and the rules, start the conversation."""
+        # TODO: return diff, rules, tool_calls_used=0 and the first two messages</code></pre></div>
+<ul>
+  <li>A node returns only the keys it changes. Keys without a reducer are overwritten; <code>messages</code>, <code>trace</code> and <code>checked</code> are appended to because of their <code>Annotated</code> reducers.</li>
+  <li>Passing the model, the repository and the commit into <code>build_graph</code> keeps the nodes free of globals, and lets the tests in 4.5 inject a fake model.</li>
+</ul>
+<aside class="note">
+  <p class="note-label">Notes file</p>
+  <p>Which two state keys would break if you removed their reducer, and how would the failure show? You need the answer in 4.3, and it is good material for the video.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-4-2">Exercise 4.2 &ndash; The look-up loop with a budget</h3><label class="done"><input type="checkbox" id="done-4-2" data-ex> Done</label></div>
+<div class="code"><pre class="cb py"><code>    def lookup(state: ReviewState) -> dict:
+        """Step 2a. The model either asks for tools or says it has enough context."""
+        # TODO: lookup_model.invoke(state["messages"]) -> {"messages": [ai_message]}
+
+    def run_tools(state: ReviewState) -> dict:
+        """Step 2b. Execute the requested tool calls while budget remains."""
+        # TODO: for each call in state["messages"][-1].tool_calls:
+        #         budget left -> tools_by_name[call["name"]].invoke(call) gives a ToolMessage
+        #         no budget   -> ToolMessage(content="Tool budget used up.", tool_call_id=call["id"])
+        #       return the messages, the new tool_calls_used and one trace entry per call
+
+    def after_lookup(state: ReviewState) -> Literal["run_tools", "write_findings"]:
+        # TODO
+
+    def after_tools(state: ReviewState) -> Literal["lookup", "write_findings"]:
+        # TODO</code></pre></div>
+<ul>
+  <li>One model message can carry several tool calls. Every one of them needs a matching <code>ToolMessage</code>, also the ones you refuse, otherwise the next model call is rejected by the provider.</li>
+  <li>Unknown tool names happen with small models. Answer them with a <code>ToolMessage</code> that lists the valid names.</li>
+  <li>Tell the model its budget in the system prompt, and that it should stop asking once it has what it needs. On the dev units, watch how many calls it really spends.</li>
+  <li>Write this node yourself and do not reach for the prebuilt <code>ToolNode</code>: the budget lives here, and it is the part of the control flow that <code>create_agent</code> could not give you.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>Wire only <code>START &rarr; load_context &rarr; lookup &harr; run_tools</code> with both routing functions ending in <code>END</code> for now, compile, and stream one dev unit with <code>graph.stream(inputs, stream_mode="updates")</code>. You see the node names in order and never more than 8 executed calls in <code>trace</code>. Then set <code>max_tool_calls=2</code> and confirm the loop stops after two.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-4-3">Exercise 4.3 &ndash; Findings and the parallel self-check</h3><label class="done"><input type="checkbox" id="done-4-3" data-ex> Done</label></div>
+<div class="code"><pre class="cb py"><code>    def write_findings(state: ReviewState) -> dict:
+        """Step 3. Structured ReviewOutput from everything gathered so far."""
+        # TODO: call_structured(model, ReviewOutput, state["messages"] + [final instruction])
+        #       -> {"draft": clean_findings(...)}
+
+    def fan_out(state: ReviewState):
+        """One verify_finding branch per draft finding."""
+        if not state["draft"]:
+            return "finalize"
+        return [Send("verify_finding", {"finding": f, "commit": state["commit"]})
+                for f in state["draft"]]
+
+    def verify_finding(payload: dict) -> dict:
+        """Step 4. Re-check one finding against the code it points at."""
+        # `payload` is what Send passed, not the graph state.
+        # TODO: read the file around the finding's lines from the repo, ask for a
+        #       Verification, return {"checked": [{"finding": ..., "supported": ..., "reason": ...}]}
+
+    def finalize(state: ReviewState) -> dict:
+        # TODO: split state["checked"] into findings and dropped; sort by severity, then line
+
+    g = StateGraph(ReviewState)
+    # TODO: add the six nodes
+    # TODO: add the edges of the diagram
+    g.add_conditional_edges("write_findings", fan_out, ["verify_finding", "finalize"])
+    return g.compile()</code></pre></div>
+<ul>
+  <li>The verifier gets a fresh, small context: the finding, the code around its lines read again from the repository, and the rules. It does not get the conversation that produced the finding, so it cannot simply agree with itself.</li>
+  <li>The branches run in the same step and all write to <code>checked</code>. That is the key whose reducer you thought about in 4.1.</li>
+  <li>Keep the dropped findings in the state. They are evidence for the evaluation (did the self-check remove invalid findings or valid ones?) and cost nothing.</li>
+  <li>On the free tier, parallel branches hit the rate limit. The limiter from 2.2 spaces the requests; <code>config={"max_concurrency": 2}</code> on <code>invoke</code> caps the parallelism.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>Stream one dev unit again. After <code>write_findings</code> you see one <code>verify_finding</code> update per draft finding, then a single <code>finalize</code>. <code>len(findings) + len(dropped) == len(draft)</code>.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-4-4">Exercise 4.4 &ndash; Retries, usage, and the diagram</h3><label class="done"><input type="checkbox" id="done-4-4" data-ex> Done</label></div>
+<ul>
+  <li><strong>Retries with backoff.</strong> Give the three LLM nodes a policy: <code>g.add_node("lookup", lookup, retry_policy=RetryPolicy(max_attempts=4, initial_interval=2.0, backoff_factor=2.0))</code>. Check in the documentation which exceptions the default policy retries and whether Gemini's rate-limit error is among them; pass <code>retry_on=</code> if not. Then switch off the chat model's own retries.</li>
+  <li><strong>Recursion limit.</strong> Each loop round is two steps, so eight single-call rounds plus the other nodes come close to the default limit. Pass <code>config={"recursion_limit": 40}</code>; the tool budget is your real limit, this one is the safety net.</li>
+  <li><strong>Usage.</strong> Collect tokens and call counts across all nodes with a callback in the config (look up <code>UsageMetadataCallbackHandler</code> in <code>langchain_core.callbacks</code>). <code>tool_calls</code> comes from <code>tool_calls_used</code>.</li>
+  <li><strong>One entry function.</strong> <code>review_agent(repo, sha, path) -> ReviewResult</code> builds the graph, invokes it, measures wall-clock time and fills <code>stats</code> and <code>trace</code>. It has the same signature as <code>review_baseline</code>.</li>
+  <li><strong>Diagram from code.</strong> Write <code>graph.get_graph().draw_mermaid()</code> into <code>docs/architecture.md</code>. A diagram generated from the compiled graph cannot drift from the implementation.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>Review the same dev unit with <code>review_baseline</code> and <code>review_agent</code> and compare the two <code>ReviewResult</code> objects. The agent shows more LLM calls, some tool calls and a longer latency. Temporarily break the API key: the run ends with a readable error after the retries, not a traceback from inside LangGraph.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-4-5">Exercise 4.5 &ndash; Test the graph without a model</h3><label class="done"><input type="checkbox" id="done-4-5" data-ex> Done</label></div>
+<p>Smoke tests must run without a key or Ollama. Two layers are enough:</p>
+<ul>
+  <li><strong>Routing functions as plain functions.</strong> Hand <code>after_lookup</code> and <code>after_tools</code> small state dicts: tool calls with budget left, tool calls with the budget used, no tool calls.</li>
+  <li><strong>The whole graph with a scripted model.</strong> Write a small fake with <code>bind_tools</code>, <code>invoke</code> and <code>with_structured_output</code> that replays a list of prepared replies: an <code>AIMessage</code> with three tool calls, then one without, then a <code>ReviewOutput</code> with two findings, then one <code>Verification(supported=True)</code> and one <code>False</code>. Run it on the fixture repository.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>pytest</code> passes offline. The scripted run ends with exactly one finding and one dropped finding, and with <code>max_tool_calls=2</code> the third tool call is answered with the budget message.</p>
+</aside>
+
+<!-- ===================== PART 5 ===================== -->
+<h2 id="part-5">Part 5 &ndash; CLI, reports, error cases</h2>
+<p class="part-meta">The documented entry point, and the engineering-quality points.</p>
+
+<div class="ex-head"><h3 id="ex-5-1">Exercise 5.1 &ndash; The review command</h3><label class="done"><input type="checkbox" id="done-5-1" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/cli.py</div><pre class="cb py"><code>import argparse
+import sys
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="reviewgraph")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    review = sub.add_parser("review", help="Review the Python files a commit changes")
+    review.add_argument("--repo", required=True)
+    review.add_argument("--commit", required=True)
+    review.add_argument("--system", choices=["agent", "baseline"], default="agent")
+    review.add_argument("--out", default="out")
+    review.add_argument("--verbose", action="store_true", help="Print each graph step as it runs")
+
+    evaluate = sub.add_parser("eval", help="Run or recompute the evaluation")
+    # TODO in Part 6: --units, --cached
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    # TODO: dispatch; turn known exceptions into one-line messages and exit codes
+    return 0</code></pre></div>
+<ul>
+  <li>Order of work in <code>review</code>: open the repository, resolve the commit, list reviewable files with <code>is_reviewable</code>, and only then create a model. The two error cases of the specification never reach an LLM this way.</li>
+  <li>Review the files one after another and keep going if one fails; its <code>ReviewResult.error</code> goes into the report.</li>
+  <li><code>--verbose</code> prints the stream updates from 4.2 (node name, tool name and arguments). It costs ten lines and makes the graph visible in the video.</li>
+  <li>Add <code>__main__.py</code> so <code>python -m reviewgraph</code> works as well.</li>
+</ul>
+
+<div class="ex-head"><h3 id="ex-5-2">Exercise 5.2 &ndash; Markdown and JSON reports</h3><label class="done"><input type="checkbox" id="done-5-2" data-ex> Done</label></div>
+<p class="files">File: <code>src/reviewgraph/report.py</code></p>
+<ul>
+  <li>JSON: the list of <code>ReviewResult</code> objects through <code>model_dump()</code>, written to <code>out/&lt;sha7&gt;/review.json</code>.</li>
+  <li>Markdown: a header (commit, system, model), then per file a table with location (<code>path:line</code>), category, severity, explanation and fix, sorted high to low. A footer with LLM calls, tool calls, tokens and seconds. Write it to <code>out/&lt;sha7&gt;/review.md</code> and print it to the terminal.</li>
+  <li>A file without findings gets a line that says so. A reader should be able to tell "reviewed, nothing found" from "not reviewed".</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>reviewgraph review --repo data/target --commit &lt;I2 sha&gt; --verbose</code> prints the steps and a report, and both files exist. Test: <code>render_markdown</code> on a hand-built <code>ReviewResult</code> contains the finding's path and line.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-5-3">Exercise 5.3 &ndash; Error cases</h3><label class="done"><input type="checkbox" id="done-5-3" data-ex> Done</label></div>
+<p>Each row needs a one-line message for the user and a test. The first four can be tested with <code>main([...])</code> on the fixture repository.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Case</th><th>Behaviour</th><th>Exit</th></tr></thead>
+  <tbody>
+    <tr><td><code>--repo</code> is not a Git repository</td><td>Message with the path, no LLM call</td><td class="num">2</td></tr>
+    <tr><td>Unknown or malformed commit</td><td>Message, no LLM call</td><td class="num">2</td></tr>
+    <tr><td>Commit without reviewable Python</td><td>"Nothing to review" with the reason, no LLM call</td><td class="num">0</td></tr>
+    <tr><td>Missing key, invalid setting</td><td>Names the variable; suggests <code>LLM_PROVIDER=ollama</code></td><td class="num">2</td></tr>
+    <tr><td>Ollama not running or model not pulled</td><td>Says how to start Ollama and which <code>ollama pull</code> to run</td><td class="num">3</td></tr>
+    <tr><td>API error or rate limit</td><td>Retried with backoff, then reported per file; other files continue</td><td class="num">3</td></tr>
+    <tr><td>Structured output invalid twice</td><td>Reported per file as a failed review</td><td class="num">3</td></tr>
+  </tbody>
+</table></div>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>The first four rows pass as tests with a model factory that raises if it is ever called. That assertion is the proof for "answered without an LLM call".</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-5-4">Exercise 5.4 &ndash; The local path</h3><label class="done"><input type="checkbox" id="done-5-4" data-ex> Done</label></div>
+<ul>
+  <li><code>ollama pull qwen2.5-coder:7b</code>, then check with <code>ollama show qwen2.5-coder:7b</code> that the model lists tool support. If it does not, choose another local model that does and update the specification's example.</li>
+  <li>Run the same dev unit with <code>LLM_PROVIDER=ollama</code>. Expect weaker tool use: wrong tool names, repeated identical calls, findings without line numbers. Your tool error messages and <code>clean_findings</code> absorb most of that.</li>
+  <li>If the local model cannot complete the loop reliably, say so in the README. A documented limitation of the key-free path is fine; the other key-free path is the cached evaluation in Part 6.</li>
+</ul>
+<aside class="note">
+  <p class="note-label">Notes file</p>
+  <p>Two or three observations about the local model on the dev unit: time per review, tool calls used, quality of findings next to Gemini's. They go into the README's limitations.</p>
+</aside>
+
+<!-- ===================== PART 6 ===================== -->
+<h2 id="part-6">Part 6 &ndash; Evaluation</h2>
+<p class="part-meta">Fifteen points, and the part where order matters most: tune on dev, freeze, hand-label, then look at numbers.</p>
+<aside class="note warn">
+  <p class="note-label">Quota</p>
+  <p>One agent review can take up to 9 look-up calls, 1 findings call and one call per finding. Over 37 test units, plus the baseline, about 200 judge calls and all your dev-set tuning, that is well over a thousand requests. Look up the current daily request limit of your Gemini model in AI Studio before you plan the run days, and make every stage resumable.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-6-1">Exercise 6.1 &ndash; Resumable runner with a cache</h3><label class="done"><input type="checkbox" id="done-6-1" data-ex> Done</label></div>
+<p class="files">File: <code>src/reviewgraph/evaluation/runner.py</code></p>
+<ul>
+  <li><code>run_units(units, system)</code> writes one file per unit and system: <code>data/runs/&lt;system&gt;/&lt;unit-id-as-filename&gt;.json</code>. A unit whose file exists is skipped, so an interrupted run continues where it stopped.</li>
+  <li>Each record holds the <code>ReviewResult</code> plus provenance: model id, <code>PROMPT_VERSION</code>, the Git commit of the homework repo, and a timestamp. With this you can show that the test runs were made after the freeze.</li>
+  <li>A failed review is stored with its <code>error</code> and counted as a unit without findings. Do not rerun failures selectively after you have seen results; rerun rules belong in <code>notes.md</code> before the test run.</li>
+  <li>These files are the cached outputs of objective 4. <code>reviewgraph eval --cached</code> must work from them without a key.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>Run both systems on three dev units, interrupt the second run with Ctrl+C and start it again: finished units are skipped.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-6-2">Exercise 6.2 &ndash; The judge</h3><label class="done"><input type="checkbox" id="done-6-2" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/evaluation/judge.py</div><pre class="cb py"><code>class JudgeVerdict(BaseModel):
+    label: Literal["valid", "minor", "invalid"]
+    reason: str = Field(description="One sentence")
+
+
+def select_for_judging(result: ReviewResult, limit: int = 3) -> list[Finding]:
+    """Medium and high findings, high first, then reporting order, at most `limit`."""
+    # TODO
+
+
+def finding_id(unit_id: str, system: str, finding: Finding) -> str:
+    """Stable id, e.g. a short hash, used as the cache key and in the hand-check sheet."""
+    # TODO
+
+
+def judge_finding(model, repo: GitRepo, unit: Unit, finding: Finding) -> JudgeVerdict:
+    """The judge sees the finding, the diff, the whole file at the commit and the rules.
+    It never sees which system produced the finding."""
+    # TODO</code></pre></div>
+<ul>
+  <li>Define the three labels in the judge prompt with the wording of the specification, and add one short example per label taken from the <em>dev</em> units.</li>
+  <li>Verdicts go to <code>data/verdicts.jsonl</code>, one line per <code>finding_id</code>, skipped if present.</li>
+  <li>Judge the findings in a shuffled order with a fixed seed, so system A's findings are not all judged before system B's.</li>
+</ul>
+
+<div class="ex-head"><h3 id="ex-6-3">Exercise 6.3 &ndash; Tune on the dev units, then freeze</h3><label class="done"><input type="checkbox" id="done-6-3" data-ex> Done</label></div>
+<ul>
+  <li>Run both systems and the judge on the 26 dev units. Read the findings and the verdicts. Improve the reviewer prompt, the tool descriptions, the verifier prompt and the judge prompt, and bump <code>PROMPT_VERSION</code> each time.</li>
+  <li>Keep a tuning log in <code>notes.md</code>: what you saw, what you changed, what it did. Three or four honest entries are worth more in <code>EVALUATION.md</code> than a polished claim.</li>
+  <li>When the dev results stop improving, or on Wed 2 Dec at the latest, freeze: commit, and tag the commit <code>eval-freeze</code>. From here on, prompts, graph and judge do not change.</li>
+</ul>
+<aside class="note warn">
+  <p class="note-label">The test set is used once</p>
+  <p>If you look at test results and then change a prompt, the 37 units are no longer a test set. A crash that forces a code fix after the freeze is acceptable if the fix does not touch prompts or logic and you document it with the commit.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-6-4">Exercise 6.4 &ndash; Test run and hand check, in this order</h3><label class="done"><input type="checkbox" id="done-6-4" data-ex> Done</label></div>
+<ol>
+  <li>Run both systems on <code>units_test.jsonl</code>. Do not read the reports yet beyond checking that the run completed.</li>
+  <li><code>scripts/sample_handcheck.py</code> draws 20 findings with a fixed seed, 10 per system, spread over the categories, and writes <code>data/handcheck.csv</code> with <code>finding_id</code>, file, lines, category, explanation, fix and two empty columns <code>my_label</code> and <code>my_reason</code>. The system is not in the sheet.</li>
+  <li>Label all 20 yourself with the diff and the file open. Commit the filled sheet.</li>
+  <li>Only now run the judge on the test findings.</li>
+</ol>
+<p>The commit order in the history (hand labels before verdicts) is your evidence that the hand check was blind.</p>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p><code>git log --oneline -- data/handcheck.csv data/verdicts.jsonl</code> shows the filled hand-check sheet committed before the test verdicts.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-6-5">Exercise 6.5 &ndash; Metrics</h3><label class="done"><input type="checkbox" id="done-6-5" data-ex> Done</label></div>
+<div class="code"><div class="code-file">src/reviewgraph/evaluation/metrics.py</div><pre class="cb py"><code>def merge_defects(valid: list[JudgedFinding], slack: int = 3) -> list[Defect]:
+    """Group valid findings with the same file and category whose line ranges,
+    widened by `slack` lines, overlap. One group is one defect; it remembers
+    which systems found it."""
+    # TODO
+
+
+def precision(judged: list[JudgedFinding]) -> float: ...
+def pooled_recall(defects: list[Defect], system: str) -> float: ...
+def f1(p: float, r: float) -> float: ...
+def units_with_valid_finding(judged: list[JudgedFinding], units: list[Unit]) -> float: ...
+def by_category(judged: list[JudgedFinding]) -> dict[str, dict]: ...
+def latency_summary(results: list[ReviewResult]) -> dict:
+    """Median and p95 of latency_s. State the percentile method in EVALUATION.md."""
+def cost_usd(stats: RunStats, price_in_per_mtok: float, price_out_per_mtok: float) -> float: ...</code></pre></div>
+<ul>
+  <li>Test each function on a hand-made example where you know the answer: three findings on lines 10&ndash;12, 14&ndash;15 and 40 in one file and category give two defects; a division by zero (no judged findings) returns 0 and does not crash.</li>
+  <li>Report counts next to every ratio. With 37 units, "precision 0.71 (27 of 38)" tells the reader how much the number can be trusted.</li>
+  <li>Take the paid-tier prices of your Gemini model from the pricing page, keep them as constants with the date you read them, and include the judge's tokens in the total spend.</li>
+  <li>Hand-check agreement: the share of the 20 findings where your label equals the judge's, and the 3&times;3 table of your labels against the judge's. The table shows whether disagreements are about <em>minor</em> or about <em>valid</em> against <em>invalid</em>.</li>
+  <li><code>reviewgraph eval --cached</code> reads runs and verdicts from <code>data/</code>, prints the tables and writes them as Markdown for <code>EVALUATION.md</code>. Without <code>--cached</code> it first fills in whatever is missing.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>With <code>GEMINI_API_KEY</code> unset and Ollama stopped, <code>reviewgraph eval --cached</code> prints the full results table for A and B. Add this as a smoke test on a three-unit sample in <code>tests/data/</code>.</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-6-6">Exercise 6.6 &ndash; Failure analysis and EVALUATION.md</h3><label class="done"><input type="checkbox" id="done-6-6" data-ex> Done</label></div>
+<p>Pick at least three cases from the test results and write each up with the unit id, the finding, the tool trace and your explanation:</p>
+<ul>
+  <li>a high-severity finding the judge called invalid, and which step produced it (did the self-check see it and let it through?);</li>
+  <li>a valid defect only the baseline found (did the look-up loop distract the agent, or did the self-check drop a true finding? <code>dropped</code> tells you);</li>
+  <li>a verdict where you and the judge disagree, with both reasons.</li>
+</ul>
+<p>Then answer the hypothesis of the specification directly: did the agent find more valid defects in the context-dependent categories (authorization, transactions, model rules), and did it report fewer invalid findings? Say so too if the answer is no. Close with the two threats to validity from the specification and what your hand check says about the second one.</p>
+
+<!-- ===================== PART 7 ===================== -->
+<h2 id="part-7">Part 7 &ndash; Docs, video, pull request</h2>
+<p class="part-meta">Seventeen points for things that are mostly already in <code>notes.md</code>.</p>
+
+<div class="ex-head"><h3 id="ex-7-1">Exercise 7.1 &ndash; The five documents</h3><label class="done"><input type="checkbox" id="done-7-1" data-ex> Done</label></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>File</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr><td><code>README.md</code></td><td>What it is; install and run commands that work when pasted; both providers; the key-free path; the main results table; why LangGraph is central (state, bounded loop, <code>Send</code> fan-out, retry policies) with a link to the diagram; limitations.</td></tr>
+    <tr><td><code>DATA.md</code></td><td>Both sources with URL or path, license, size; unit rules and counts; freeze commit and hash; what the cached runs and verdicts are; what was excluded and why.</td></tr>
+    <tr><td><code>EVALUATION.md</code></td><td>Method, formulas, the A/B table, category breakdown, latency and cost, hand-check agreement, tuning log summary, failure cases, threats to validity.</td></tr>
+    <tr><td><code>AI_USAGE.md</code></td><td>Each AI tool, what it was used for and how you checked the result. Include that the target application was written by coding agents, and that this implementation guide was AI-generated.</td></tr>
+    <tr><td><code>docs/architecture.md</code></td><td>The diagram from the specification and the Mermaid graph generated in 4.4.</td></tr>
+  </tbody>
+</table></div>
+
+<div class="ex-head"><h3 id="ex-7-2">Exercise 7.2 &ndash; Clean-machine run</h3><label class="done"><input type="checkbox" id="done-7-2" data-ex> Done</label></div>
+<ul>
+  <li>Clone your repository into a new folder, create a new virtual environment, and follow your README word for word: install, <code>pytest</code>, <code>reviewgraph eval --cached</code>, <code>python scripts/get_target.py</code>, one <code>reviewgraph review</code>.</li>
+  <li>Search the whole history for secrets before you open the pull request: <code>git log -p --all | findstr /i "api_key AIza secret password"</code>. A key that was ever committed has to be revoked, not just deleted.</li>
+  <li>Check that no file is larger than about 50 MB and that the cached traces contain nothing from the deny list of Exercise 1.3.</li>
+</ul>
+<aside class="note check">
+  <p class="note-label">Checkpoint</p>
+  <p>Every command in the README ran in the fresh clone without you fixing anything by hand. This is the eligibility condition "the system runs by following your README".</p>
+</aside>
+
+<div class="ex-head"><h3 id="ex-7-3">Exercise 7.3 &ndash; Video</h3><label class="done"><input type="checkbox" id="done-7-3" data-ex> Done</label></div>
+<p>Three to five minutes, English, screen capture of the real system. A script that fits:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Time</th><th>On screen</th></tr></thead>
+  <tbody>
+    <tr><td class="num">0:00 &ndash; 0:30</td><td>The problem: an application written by coding agents, eight commits to review</td></tr>
+    <tr><td class="num">0:30 &ndash; 1:15</td><td>The generated graph diagram; state, loop with budget, fan-out; why <code>create_agent</code> was not enough</td></tr>
+    <tr><td class="num">1:15 &ndash; 2:45</td><td><code>reviewgraph review --verbose</code> on a real commit: the steps, the tool calls, a dropped finding, the report</td></tr>
+    <tr><td class="num">2:45 &ndash; 3:05</td><td>Edge case: an unknown commit answered instantly without an LLM call</td></tr>
+    <tr><td class="num">3:05 &ndash; 4:00</td><td><code>reviewgraph eval --cached</code>: the A/B table, judge agreement, one failure case</td></tr>
+    <tr><td class="num">4:00 &ndash; 4:30</td><td>What worked, what did not, what you would change</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li>Enlarge the terminal font. Keep <code>.env</code>, keys and personal data off the screen.</li>
+  <li>Upload where the instructors can open it without an account or an access request, test the link in a private window, and put it in <code>VIDEO.md</code>.</li>
+</ul>
+
+<div class="ex-head"><h3 id="ex-7-4">Exercise 7.4 &ndash; Pull request</h3><label class="done"><input type="checkbox" id="done-7-4" data-ex> Done</label></div>
+<ul>
+  <li>Open a pull request from <code>solution</code> to <code>main</code>, name it <code>homework</code>, assign it to the instructor listed in Moodle, and leave it open.</li>
+  <li>Confirm that the instructors still have read access to the dance-studio repository, since <code>scripts/get_target.py</code> depends on it.</li>
+</ul>
+
+<h2 id="stretch">Stretch goals</h2>
+<p>Only after Part 6 is complete. Each one has to be documented and evaluated to count towards the five ambition points.</p>
+<ul>
+  <li><strong>Per-step ablation.</strong> Add <code>with_lookup</code> and <code>with_verify</code> flags to <code>build_graph</code> and evaluate "look-up only" and "self-check only" as two more systems. This separates the contribution of the two steps, which the A/B comparison cannot do. It needs more review and judge calls, so check your quota first, and decide before the test run.</li>
+  <li><strong>Pull-request comment.</strong> The optional objective of the specification: post <code>review.md</code> with <code>gh pr comment</code>, behind an explicit <code>--post</code> flag.</li>
+  <li><strong>Tracing.</strong> A second new framework such as Langfuse or LangSmith to record the graph runs, with one trace shown in the video.</li>
+  <li><strong>Uncertainty.</strong> A bootstrap over the 37 units for the F1 difference between A and B, reported as an interval.</li>
+</ul>
+
+<h2 id="final-check">Final check</h2>
+<p>The eligibility conditions of the homework, as questions to answer before the deadline:</p>
+<ul>
+  <li>Was the specification approved, and does the system still match it? If something changed, was an updated specification sent?</li>
+  <li>Does the system run from the README on a clean machine?</li>
+  <li>Is LangGraph central (state, loop, fan-out), with LangChain, Gemini, Ollama and Pydantic working around it?</li>
+  <li>Does the video show a real run and an edge case?</li>
+  <li>Are external code, models and AI assistance attributed?</li>
+  <li>Is the history free of keys, tokens and passwords?</li>
+  <li>Test set of at least 30 untouched items, a baseline, median and p95 latency, cost, three failure cases, and at least 10 hand-checked verdicts with the agreement rate: all present in <code>EVALUATION.md</code>?</li>
+</ul>
+</main>
+</div>
+
+<script>
+(function () {
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  // colour comments and TODO lines in python / shell / toml blocks
+  document.querySelectorAll("pre.cb").forEach(function (pre) {
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lang = pre.classList.contains("py") || pre.classList.contains("sh") || pre.classList.contains("toml");
+    var raw = code.textContent;
+    if (lang) {
+      code.innerHTML = raw.split("\n").map(function (line) {
+        var m = line.match(/^(.*?)(^|\s)(#.*)$/);
+        if (!m || (m[1].split('"').length % 2 === 0)) return esc(line);
+        var cls = /TODO/.test(m[3]) ? "t" : "c";
+        return esc(m[1] + m[2]) + '<span class="' + cls + '">' + esc(m[3]) + "</span>";
+      }).join("\n");
+    }
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "copy"; btn.textContent = "Copy";
+    btn.addEventListener("click", function () {
+      var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy"; }, 1400); };
+      var fallback = function () {
+        var r = document.createRange(); r.selectNodeContents(code);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        btn.textContent = "Selected";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1400);
+      };
+      try { navigator.clipboard.writeText(raw).then(done, fallback); } catch (e) { fallback(); }
+    });
+    pre.parentNode.appendChild(btn);
+  });
+
+  // per-exercise ticks, remembered in this browser only
+  var KEY = "reviewgraph-guide-done";
+  var boxes = Array.prototype.slice.call(document.querySelectorAll("input[data-ex]"));
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
+  function refresh() {
+    var n = boxes.filter(function (b) { return b.checked; }).length;
+    document.getElementById("done-count").textContent = n;
+    document.getElementById("ex-count").textContent = boxes.length;
+    document.getElementById("bar-fill").style.width = (boxes.length ? (100 * n / boxes.length) : 0) + "%";
+  }
+  boxes.forEach(function (b) {
+    if (saved[b.id]) b.checked = true;
+    b.addEventListener("change", function () {
+      saved[b.id] = b.checked;
+      try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      refresh();
+    });
+  });
+  refresh();
+})();
+</script>
