@@ -17,6 +17,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 2.1: finding and result schemas and `clean_findings` in `schemas.py`, `tests/test_schemas.py`. |
 | 2026-11-12 | Claude Code | Exercise 2.2: `llm.py` (model factory, `call_structured`, `add_usage`), `scripts/check_llm.py`, `tests/test_llm.py`. |
 | 2026-11-12 | Claude Code | Exercise 2.3: `prompts.py` (system prompt, `render_diff`, `load_rules`), `baseline.py`, their tests; found that `gemini-3.8-flash` was unavailable and compared the other Gemini models. |
+| 2026-11-12 | Claude Code | Exercise 3.1: `tools.py` with `read_file`, `search_code`, `list_files` and `is_readable`; `scripts/try_baseline.py`; first tests in `tests/test_tools.py`. |
 
 ## Decisions
 
@@ -39,6 +40,9 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: `latency_s` is the wall-clock time of the whole review. It includes the waiting time of the rate limiter and the model's own retries, so the latency numbers of the evaluation have to say so, or the limiter wait has to be measured separately.
 - 2026-11-12: Gemini requests have a timeout of 300 s (`API_TIMEOUT_SECONDS`). Without a timeout a request hung for more than five minutes. One review of a 298-line file took 110 s on `gemini-3.5-flash`, almost all of it thinking.
 - 2026-11-12: The Gemini model is `gemini-3.5-flash` everywhere (default in `config.py`, `.env.example`, specification), not `gemini-3.8-flash` as in lab 3. Reason: 3.8 was overloaded (503/504) on 2026-11-09 and again on 2026-11-12, while 3.5 answered and honours temperature 0. Older entries in this file that name `gemini-3.8-flash` describe what was run at the time.
+- 2026-11-12: Tool limits: `read_file` returns at most 200 lines per call and cuts lines after 1,000 characters; `search_code` returns at most 40 hits, each cut after 200 characters (the vendored minified JavaScript under `app/` has lines of many thousand characters); `list_files` returns at most 200 paths. Cut output always ends with a line that says so and what to do.
+- 2026-11-12: `read_file` has `end_line: int = 0`, where 0 means "up to 200 lines from `start_line`" (the plan has `end_line = MAX_LINES`). With a fixed default of 200, a call with only `start_line=250` would be an invalid range.
+- 2026-11-12: `is_readable` deny list (file name, in any folder): `.env`, `.env.*` except `.env.example`, `*.pem`, `*.key`, `*.p12`, `id_rsa*`. Denied files are not read, not shown in search hits and not listed. Nothing in the target matches today.
 
 ## Baseline checkpoint (dev units, prompt version 1, `gemini-3.5-flash`)
 
