@@ -105,7 +105,8 @@ def main() -> int:
         return 1
 
     INCREMENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    INCREMENTS_FILE.write_text(json.dumps(increments, indent=2) + "\n", encoding="utf-8")
+    # newline="\n" keeps the file byte-identical on Windows and Linux.
+    INCREMENTS_FILE.write_text(json.dumps(increments, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"Wrote {len(increments)} increment commits to {INCREMENTS_FILE.relative_to(ROOT)}")
     return 0
 
