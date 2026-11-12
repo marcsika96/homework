@@ -38,6 +38,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: `review_baseline` never raises for a failed review. An unknown commit or a file the commit does not change is reported in `result.error` without an LLM call; an API failure and invalid output are reported there too, with the calls counted. Only a configuration error (missing key) is raised.
 - 2026-11-12: `latency_s` is the wall-clock time of the whole review. It includes the waiting time of the rate limiter and the model's own retries, so the latency numbers of the evaluation have to say so, or the limiter wait has to be measured separately.
 - 2026-11-12: Gemini requests have a timeout of 300 s (`API_TIMEOUT_SECONDS`). Without a timeout a request hung for more than five minutes. One review of a 298-line file took 110 s on `gemini-3.5-flash`, almost all of it thinking.
+- 2026-11-12: The Gemini model is `gemini-3.5-flash` everywhere (default in `config.py`, `.env.example`, specification), not `gemini-3.8-flash` as in lab 3. Reason: 3.8 was overloaded (503/504) on 2026-11-09 and again on 2026-11-12, while 3.5 answered and honours temperature 0. Older entries in this file that name `gemini-3.8-flash` describe what was run at the time.
 
 ## Baseline checkpoint (dev units, prompt version 1, `gemini-3.5-flash`)
 

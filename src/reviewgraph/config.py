@@ -13,7 +13,7 @@ class ConfigError(Exception):
 class Settings(BaseModel):
     llm_provider: Literal["gemini", "ollama"] = "gemini"
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-3.5-flash"
     ollama_model: str = "qwen2.5-coder:7b"
     ollama_base_url: str = "http://localhost:11434"
     target_repo_path: str = "data/target"

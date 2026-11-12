@@ -92,8 +92,8 @@ def test_every_model_facing_field_has_a_description(schema):
 
 
 def test_review_result_starts_empty_and_survives_json():
-    result = ReviewResult(unit_id=f"I1:{PATH}", system="baseline", model="gemini-3.8-flash")
-    other = ReviewResult(unit_id=f"I2:{PATH}", system="agent", model="gemini-3.8-flash")
+    result = ReviewResult(unit_id=f"I1:{PATH}", system="baseline", model="gemini-3.5-flash")
+    other = ReviewResult(unit_id=f"I2:{PATH}", system="agent", model="gemini-3.5-flash")
 
     # The default lists and stats must not be shared between results.
     result.findings.append(make_finding())

@@ -54,7 +54,7 @@ The agent works in four steps. It reads the changed lines and the project rules,
 | --- | --- | --- |
 | LangGraph | new | Builds the agent as a graph of steps: the data shared between the steps, the look-up loop with its limit of 8 tool calls, choosing the next step from the result, and double-checking the findings in parallel |
 | LangChain 1.x | course (lab 3) | Chat-model interface, `@tool` definitions, `with_structured_output`, token usage |
-| Gemini API | course (lab 3) | Reviewer and judge LLM: `gemini-3.8-flash` on the free tier, through `langchain-google-genai` |
+| Gemini API | course (lab 3) | Reviewer and judge LLM: `gemini-3.5-flash` on the free tier, through `langchain-google-genai` |
 | Ollama | course (lab 3) | Local model (e.g. `qwen2.5-coder:7b`) through `langchain-ollama`, as a key-free path |
 | Pydantic | course (lab 3) | Schemas for findings, units and judge verdicts; validated structured output |
 | Git, pytest, python-dotenv | tooling | Reading the repository at a commit; smoke tests; configuration from `.env` |
@@ -66,7 +66,7 @@ Versions are pinned to the tested lab 3 environment (`langchain` 1.4.2, `langgra
 
 - **Test set**: the 36 test units from I4–I8. Temperature 0, one run per unit and system.
 - **What is compared**: (A) my agent with all four steps, and (B) a simple baseline that uses the same model and project rules but gets only the changed lines and answers in a single prompt, without looking up code or double-checking. The difference between A and B shows what the extra steps add.
-- **Judging** (LLM-as-a-judge, lecture 9): a separate judge prompt on `gemini-3.8-flash` rates every medium- or high-severity finding of A and B (at most 3 per unit and system) as *valid* (a defect that changes behaviour or breaks a rule of `AGENTS.md` or the model), *minor* (true but cosmetic; not counted) or *invalid*, with a one-sentence reason. It sees the finding, the diff, the whole file at the commit and the rules, but not which system produced the finding. Findings in the same file with overlapping lines (±3) and the same category are merged into one defect.
+- **Judging** (LLM-as-a-judge, lecture 9): a separate judge prompt on `gemini-3.5-flash` rates every medium- or high-severity finding of A and B (at most 3 per unit and system) as *valid* (a defect that changes behaviour or breaks a rule of `AGENTS.md` or the model), *minor* (true but cosmetic; not counted) or *invalid*, with a one-sentence reason. It sees the finding, the diff, the whole file at the commit and the rules, but not which system produced the finding. Findings in the same file with overlapping lines (±3) and the same category are merged into one defect.
 - **Metrics**: precision (valid ÷ judged findings); pooled recall (distinct valid defects a system found ÷ all distinct valid defects found by either system); F1 as the primary metric; the share of units with at least one valid finding; a breakdown by category.
 - **Latency and cost**: wall-clock time per review (median, p95), LLM and tool calls, and tokens priced at Gemini's paid-tier rate as USD per review. Total spend, judge included, is expected to stay under USD 5.
 - **Hand check**: I judge 20 findings myself before seeing the judge's verdicts (10 per system, mixed across categories) and report how often the judge agrees with me. I analyse at least three failures, for example a confident false alarm, a defect only the baseline found, or a judge verdict I disagree with.

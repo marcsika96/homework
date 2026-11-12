@@ -83,14 +83,14 @@ def test_gemini_without_key_names_the_variable_and_the_free_path():
 
 
 def test_gemini_model_is_built_from_settings():
-    settings = Settings(llm_provider="gemini", gemini_api_key="test-key", gemini_model="gemini-3.8-flash")
+    settings = Settings(llm_provider="gemini", gemini_api_key="test-key", gemini_model="gemini-3.5-flash")
 
     model = get_chat_model(settings)
 
     assert isinstance(model, ChatGoogleGenerativeAI)
     assert model.temperature == 0
     assert model.rate_limiter is not None
-    assert model_name(settings) == "gemini-3.8-flash"
+    assert model_name(settings) == "gemini-3.5-flash"
 
 
 def test_gemini_models_share_one_rate_limiter():

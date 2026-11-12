@@ -292,7 +292,7 @@ testpaths = ["tests"]</code></pre></div>
 <div class="code"><div class="code-file">.env.example</div><pre class="cb sh"><code># gemini or ollama
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-3.5-flash
 OLLAMA_MODEL=qwen2.5-coder:7b
 OLLAMA_BASE_URL=http://localhost:11434
 # where scripts/get_target.py clones from and to
@@ -315,7 +315,7 @@ class ConfigError(Exception):
 class Settings(BaseModel):
     llm_provider: Literal["gemini", "ollama"] = "gemini"
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-3.5-flash"
     ollama_model: str = "qwen2.5-coder:7b"
     ollama_base_url: str = "http://localhost:11434"
     target_repo_path: str = "data/target"
