@@ -16,6 +16,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-12 | Claude Code | Exercise 1.3: checksum test in `tests/test_dataset.py`, first version of `DATA.md`, searched the target's history for committed secrets. |
 | 2026-11-12 | Claude Code | Exercise 2.1: finding and result schemas and `clean_findings` in `schemas.py`, `tests/test_schemas.py`. |
 | 2026-11-12 | Claude Code | Exercise 2.2: `llm.py` (model factory, `call_structured`, `add_usage`), `scripts/check_llm.py`, `tests/test_llm.py`. |
+| 2026-11-12 | Claude Code | Exercise 2.3: `prompts.py` (system prompt, `render_diff`, `load_rules`), `baseline.py`, their tests; found that `gemini-3.8-flash` was unavailable and compared the other Gemini models. |
 
 ## Decisions
 
@@ -34,7 +35,21 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-12: `call_structured` returns `(parsed, raw_messages)` with one raw message per attempt, not a single raw message as in the plan. With a retry there are two LLM calls, and both have to be counted for the cost numbers. `StructuredOutputError` carries the raw messages for the same reason. `add_usage(stats, raw_messages)` does the counting.
 - 2026-11-12: Checked on one Gemini call (`scripts/check_llm.py`, `gemini-3.8-flash`): `usage_metadata` was `input_tokens` 48, `output_tokens` 564, `output_token_details.reasoning` 447. So thinking tokens are included in `output_tokens` (117 visible + 447 thinking), and they were about 80% of the output here. Cost has to be computed from `output_tokens` as it is. Ollama (`qwen2.5-coder:7b`) reported 53 input and 95 output tokens for the same prompt.
 - 2026-11-12: One rate limiter is shared by all Gemini models in the process (`get_rate_limiter` is cached), so reviewer and judge together stay under `REQUESTS_PER_MINUTE`.
+- 2026-11-12: `review_baseline` never raises for a failed review. An unknown commit or a file the commit does not change is reported in `result.error` without an LLM call; an API failure and invalid output are reported there too, with the calls counted. Only a configuration error (missing key) is raised.
+- 2026-11-12: `latency_s` is the wall-clock time of the whole review. It includes the waiting time of the rate limiter and the model's own retries, so the latency numbers of the evaluation have to say so, or the limiter wait has to be measured separately.
+- 2026-11-12: Gemini requests have a timeout of 300 s (`API_TIMEOUT_SECONDS`). Without a timeout a request hung for more than five minutes. One review of a 298-line file took 110 s on `gemini-3.5-flash`, almost all of it thinking.
+
+## Baseline checkpoint (dev units, prompt version 1, `gemini-3.5-flash`)
+
+| Unit | Findings | Latency | Input tokens | Output tokens |
+|------|----------|---------|--------------|---------------|
+| `I1:app/studio/system/transactions.py` | 0 | 21.6 s | 4,577 | 1,795 |
+| `I3:app/studio/backend/classes.py` | 0 | 110.3 s | 7,374 | 5,315 |
+| `I3:app/studio/database/classes.py` | 1 | 64.2 s | 6,306 | 4,061 |
+
+The one finding (lines 52–54, `logic`, high): `ends_at` adds a duration to the `starts_at` datetime but declares `output_field=DurationField()`; the fix is `DateTimeField()`. It is inside the file and on added lines. I have not yet confirmed it by running the code.
 
 ## Problems
 
+- 2026-11-12: `gemini-3.8-flash` was not usable in the afternoon: `503 UNAVAILABLE` ("model is currently experiencing high demand") and `504 DEADLINE_EXCEEDED`, even for a 48-token request. The same review request sent to the other models at 15:40: `gemini-3.8-flash` 504 after 94 s; `gemini-3.7-flash` 503; `gemini-3.6-flash` 503 (and it ignores `temperature`); `gemini-2.5-flash` 404, no longer available; `gemini-3.5-flash` OK in 24 s; `gemini-3.5-flash-lite` OK in 6.5 s, but it ignores `temperature` and does not think. The checkpoint was run with `GEMINI_MODEL=gemini-3.5-flash`.
 - 2026-11-12: `pip install -c <lab requirements URL> ...` ignored every pin and installed the newest versions (langchain 1.5.0, langgraph 1.2.20). Cause: my laptop is Windows on ARM running x64 Python, where `platform.machine()` returns `ARM64`, and every line of the lab file carries the marker `platform_machine == 'AMD64' and sys_platform == 'win32'`. Fix: evaluated the markers with `platform_machine` set to `AMD64`, wrote the matching lines to a plain constraints file without markers, and reinstalled into a fresh venv with that file. `pip check` reports no broken requirements. `requirements.txt` has no markers, so it installs the same versions on any machine.

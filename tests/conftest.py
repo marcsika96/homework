@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from reviewgraph.gitrepo import GitRepo
 
@@ -85,3 +86,39 @@ def tiny_repo(tmp_path) -> TinyRepo:
     second_sha = git(path, "rev-parse", "HEAD")
 
     return TinyRepo(path, first_sha, second_sha)
+
+
+# --- A chat model that needs no network ------------------------------------
+
+
+def raw_message(input_tokens: int, output_tokens: int) -> AIMessage:
+    usage = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+    return AIMessage(content="", usage_metadata=usage)
+
+
+def reply(parsed, error=None, tokens=(100, 20)) -> dict:
+    """One result of with_structured_output(..., include_raw=True)."""
+    return {"raw": raw_message(*tokens), "parsed": parsed, "parsing_error": error}
+
+
+class FakeModel:
+    """Stands in for a chat model: returns the prepared replies one after the other."""
+
+    def __init__(self, replies: list[dict]):
+        self.replies = list(replies)
+        self.received = []          # the message list of every call
+
+    def with_structured_output(self, schema, include_raw=False):
+        assert include_raw
+        return self
+
+    def invoke(self, messages):
+        self.received.append(messages)
+        next_reply = self.replies.pop(0)
+        if isinstance(next_reply, Exception):
+            raise next_reply            # an API failure
+        return next_reply

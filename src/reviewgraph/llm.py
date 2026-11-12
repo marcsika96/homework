@@ -13,6 +13,8 @@ from reviewgraph.schemas import RunStats
 # The only retry layer for API errors (rate limit, timeout, server error) is the
 # chat model's own. Nothing else in the project retries a failed API call.
 API_MAX_RETRIES = 3
+# Without a timeout a request that never gets an answer blocks the run for ever.
+API_TIMEOUT_SECONDS = 300
 
 # Ollama's default context window is small and it cuts longer prompts without a
 # warning. A diff plus AGENTS.md plus tool results needs more.
@@ -52,6 +54,7 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
             api_key=settings.gemini_api_key,
             temperature=0,
             max_retries=API_MAX_RETRIES,
+            timeout=API_TIMEOUT_SECONDS,
             rate_limiter=get_rate_limiter(settings.requests_per_minute),
         )
 

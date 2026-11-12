@@ -1,4 +1,5 @@
 import pytest
+from conftest import FakeModel, raw_message, reply
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
@@ -15,36 +16,6 @@ from reviewgraph.llm import (
 from reviewgraph.schemas import ReviewOutput, RunStats
 
 VALID = ReviewOutput(findings=[])
-
-
-def raw_message(input_tokens: int, output_tokens: int) -> AIMessage:
-    usage = {
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_tokens": input_tokens + output_tokens,
-    }
-    return AIMessage(content="", usage_metadata=usage)
-
-
-def reply(parsed, error=None, tokens=(100, 20)) -> dict:
-    """One result of with_structured_output(..., include_raw=True)."""
-    return {"raw": raw_message(*tokens), "parsed": parsed, "parsing_error": error}
-
-
-class FakeModel:
-    """Stands in for a chat model: returns the prepared replies one after the other."""
-
-    def __init__(self, replies: list[dict]):
-        self.replies = list(replies)
-        self.received = []          # the message list of every call
-
-    def with_structured_output(self, schema, include_raw=False):
-        assert include_raw
-        return self
-
-    def invoke(self, messages):
-        self.received.append(messages)
-        return self.replies.pop(0)
 
 
 def test_valid_reply_needs_one_call():
