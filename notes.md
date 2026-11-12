@@ -9,6 +9,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-11 | Claude Code | Wrote `implementation-plan.html`, the exercise-by-exercise guide I follow for this project. |
 | 2026-11-12 | Claude Code | Exercise 0.1: initialised the git repository, wrote `.gitignore` and started this file. |
 | 2026-11-12 | Claude Code | Exercise 0.2: created the venv, found why the lab constraints were ignored on my machine, produced `requirements.txt`. |
+| 2026-11-12 | Claude Code | Exercise 0.3: package skeleton, `pyproject.toml`, `.env.example`, filled in `get_settings()` in `config.py`, wrote `tests/test_config.py`. |
 
 ## Decisions
 
