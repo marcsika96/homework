@@ -2,6 +2,20 @@
 
 Things that are known and not done, each with the reason. When one is done, move the result to `notes.md` and delete the entry here.
 
+## From Exercise 6.1 (resumable runner)
+
+### The checkpoint has not been run with a real model
+
+- **What:** the plan's checkpoint is: both systems on three dev units, stop the second run with Ctrl+C, start again, finished units are skipped. This is shown by the offline tests only (`tests/test_runner.py`, with the scripted model).
+- **Why not done:** three dev units with both systems are about 3 + 30 Gemini requests against 20 per day (used up on 2026-11-16), or more than an hour with a local model.
+- **If it is done later:** `reviewgraph eval --limit 3 --system baseline` costs 3 requests and already shows the skipping on a second start. The agent part needs a day with quota or the Colab plan.
+
+### A changed model or prompt version replaces the stored run
+
+- **What:** `run_units` runs a unit again when its stored record has another model or `PROMPT_VERSION`, and overwrites the file. The runs of the earlier prompt version are then only in the Git history.
+- **Why not done differently:** one folder per prompt version would keep them, but every later stage (judge, metrics, `--cached`) would have to know which folder is the current one. For the tuning log of 6.3 it is enough to commit `data/runs/` before each prompt change.
+- **Risk to remember:** a forgotten `LLM_PROVIDER=ollama` in the terminal would rerun and replace Gemini runs. Check the model name in the first progress lines.
+
 ## From Exercise 5.4 (local path)
 
 ### The agent has not run with the default local model
@@ -30,7 +44,9 @@ Things that are known and not done, each with the reason. When one is done, move
 - **Why not done:** the free tier allows 20 requests per day and they were used up on 2026-11-16. Every failed request counts against the quota as well, so a run that fails on purpose costs requests that the open checkpoints need.
 - **If it is done later:** one run of `reviewgraph review` on a commit with a single small file and a broken `GEMINI_API_KEY` costs one request per file. It can be combined with the open 4.4 checkpoint, which also asks for a run with a broken key.
 
-### Ctrl+C loses the files reviewed so far
+### Ctrl+C loses the files reviewed so far (`review` command only)
+
+- **Update after 6.1:** `reviewgraph eval` does not have this problem, it stores every unit when it finishes. The entry below is still true for `reviewgraph review`.
 
 - **What:** the reports are written once, after the last file. If a run is stopped with Ctrl+C (or the laptop goes to sleep and the run is killed), the results of the files that were already reviewed are not written anywhere.
 - **Why not done:** it is not in the error table of Exercise 5.3, and the proper answer is already planned: the resumable runner of Exercise 6.1 writes one file per unit and skips the units that exist. Solving it a second time in the command line would be duplicate code.

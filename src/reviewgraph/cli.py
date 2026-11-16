@@ -9,7 +9,8 @@ import json
 import sys
 
 from reviewgraph.baseline import review_baseline
-from reviewgraph.config import ConfigError
+from reviewgraph.config import ConfigError, get_settings
+from reviewgraph.evaluation.runner import RUNS_DIR, load_records, load_units, run_units
 from reviewgraph.gitrepo import GitError, GitRepo
 from reviewgraph.graph import review_agent
 from reviewgraph.llm import OllamaError, check_ollama, get_chat_model
@@ -33,7 +34,13 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--out", default="out", help="Folder for the reports; they go to <out>/<sha7>/")
     review.add_argument("--verbose", action="store_true", help="Print each graph step as it runs")
 
-    sub.add_parser("eval", help="Run or recompute the evaluation (Part 6)")
+    evaluate = sub.add_parser("eval", help="Run both systems over a units file, or show the stored runs")
+    evaluate.add_argument("--units", default="data/units_dev.jsonl", help="Units file, one unit per line")
+    evaluate.add_argument("--system", choices=["agent", "baseline", "both"], default="both")
+    evaluate.add_argument("--limit", type=int, help="Only the first N units of the file")
+    evaluate.add_argument("--cached", action="store_true", help="Run nothing, only read the stored runs (needs no key)")
+    evaluate.add_argument("--test-set", action="store_true", help="Allow units of the test set (only after the freeze)")
+    evaluate.add_argument("--runs", default=str(RUNS_DIR), help="Folder of the stored runs")
     return parser
 
 
@@ -108,6 +115,51 @@ def run_review(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def run_eval(args: argparse.Namespace) -> int:
+    # Step 1: which units. The test set is used once, so it needs its own flag.
+    try:
+        units = load_units(args.units)
+    except OSError as e:
+        print(f"Error: cannot read the units file {args.units}: {e}", file=sys.stderr)
+        return EXIT_BAD_INPUT
+    if args.limit:
+        units = units[:args.limit]
+    if any(unit.split == "test" for unit in units) and not args.test_set:
+        print("Error: this file has units of the test set. They are run once, after the freeze; "
+              "add --test-set if this is that run.", file=sys.stderr)
+        return EXIT_BAD_INPUT
+    systems = ["baseline", "agent"] if args.system == "both" else [args.system]
+
+    # Step 2: run what is not stored yet. With --cached this step is left out,
+    # so no repository, key or model is needed.
+    quota_used_up = False
+    if not args.cached:
+        repo = GitRepo(get_settings().target_repo_path)
+        model = get_chat_model()
+        check_ollama(needs_tools="agent" in systems)
+        for system in systems:
+            summary = run_units(units, system, repo, model, runs_dir=args.runs)
+            if summary["quota_used_up"]:
+                quota_used_up = True
+                break
+
+    # Step 3: a summary of what is stored for these units.
+    print()
+    for system in systems:
+        records = load_records(units, system, runs_dir=args.runs)
+        results = [record.result for record in records]
+        print(f"{system}: {len(results)} of {len(units)} units stored, "
+              f"{sum(len(result.findings) for result in results)} findings, "
+              f"{sum(1 for result in results if result.error)} failed, "
+              f"{sum(result.stats.llm_calls for result in results)} LLM calls, "
+              f"{sum(result.stats.latency_s for result in results):.0f} s")
+
+    if quota_used_up:
+        print("Stopped: the daily quota is used up. Run the same command again tomorrow to continue.", file=sys.stderr)
+        return EXIT_REVIEW_FAILED
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command line. `argv` is for the tests; None means the real arguments."""
     args = build_parser().parse_args(argv)
@@ -117,8 +169,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "review":
             return run_review(args)
-        print("Error: the eval command is not written yet (Part 6).", file=sys.stderr)
-        return EXIT_BAD_INPUT
+        return run_eval(args)
+    except KeyboardInterrupt:
+        # Ctrl+C. For `eval` every finished unit is already stored.
+        print("Interrupted.", file=sys.stderr)
+        return EXIT_REVIEW_FAILED
     except (GitError, ConfigError) as e:
         # Known mistakes get one readable line instead of a traceback.
         print(f"Error: {e}", file=sys.stderr)
