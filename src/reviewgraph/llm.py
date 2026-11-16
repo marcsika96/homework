@@ -32,6 +32,11 @@ API_TIMEOUT_SECONDS = 300
 # Ollama's default context window is small and it cuts longer prompts without a
 # warning. A diff plus AGENTS.md plus tool results needs more.
 OLLAMA_NUM_CTX = 16384
+# The most tokens a local model may write in one answer. Ollama has no limit by
+# default, and on 2026-11-16 phi4-mini wrote more than 7,600 tokens in one
+# look-up answer (45 minutes on the CPU) and was still going. A review with
+# several findings needs well under 2,000 tokens, so this only stops runaways.
+OLLAMA_NUM_PREDICT = 4096
 
 
 class StructuredOutputError(Exception):
@@ -100,6 +105,7 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
         base_url=settings.ollama_base_url,
         temperature=0,
         num_ctx=OLLAMA_NUM_CTX,
+        num_predict=OLLAMA_NUM_PREDICT,
     )
 
 
