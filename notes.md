@@ -29,6 +29,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Claude Code | Exercise 4.4, retries: I put the `RetryPolicy` on the three model nodes in `graph.py` and set `max_retries=0` in `llm.py`; Claude reviewed it, read LangGraph's default `retry_on` and wrote `is_transient_error` in `llm.py` with its tests. |
 | 2026-11-16 | Claude Code | Exercise 4.4, the rest, written by Claude Code at my request: `review_agent`, `_review_with_graph` and `recursion_limit` at the end of `graph.py` (below a comment line that marks them), `UsageCallback` in `llm.py`, `scripts/draw_graph.py` and the generated `docs/architecture.md`, `scripts/try_agent.py`, the scripted chat model in `tests/conftest.py` and `tests/test_agent.py` (15 offline tests of the whole graph). Everything above the marker line in `graph.py` (state, the six nodes, routing, wiring, retry policy) is mine. |
 | 2026-11-16 | Claude Code | Gave the baseline the same retry rule as the agent: retry loop in `baseline.py`, the shared numbers `RETRY_MAX_ATTEMPTS`, `RETRY_INITIAL_INTERVAL`, `RETRY_BACKOFF_FACTOR` and `retry_wait` in `llm.py`, four tests in `tests/test_baseline.py`. |
+| 2026-11-16 | Claude Code | Exercise 4.5, written by Claude Code at my request: `tests/test_graph.py` with 11 tests. Layer 1 calls `after_lookup`, `after_tools` and `fan_out` as plain functions; layer 2 is the scripted run of the plan (three tool calls, two findings, one supported and one not) with a budget of 8 and of 2. |
 
 
 ## Decisions
@@ -73,6 +74,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-16: The recursion limit is `2 * max_tool_calls + 10` (26 for a budget of 8), not the fixed 40 of the plan: at most `max_tool_calls` rounds of two steps, plus the other nodes. The installed LangGraph has a default of 10,007 steps, so without this value there would be no safety net at all.
 - 2026-11-16: `review_agent` never raises for a failed review, like `review_baseline`: an unknown commit or an unchanged file is reported in `result.error` without an LLM call, and so are an API failure after the retries, invalid output and a hit recursion limit. After a failure `findings` is empty, but `trace` and `stats` hold what happened up to the last finished step, because the graph is run with `stream_mode="values"` and the last state is kept. The self-check runs at most two branches at a time (`max_concurrency=2`).
 - 2026-11-16: `docs/architecture.md` is written by `scripts/draw_graph.py` from the compiled graph, and a test fails when the file no longer matches the graph.
+- 2026-11-16: The routing functions are defined inside `build_graph`, so a test cannot import them. `tests/test_graph.py` takes them from the compiled graph (`graph.builder.branches[node][name].path.func`) and calls them with small state dicts. This reaches into LangGraph's builder object, so it can break with a LangGraph update; the alternative would have been to move the functions to module level.
 - 2026-11-16: The baseline retries a failed call by the same rule as the agent: up to 4 attempts, waiting 2 s, 4 s and 8 s, and only for errors `is_transient_error` accepts. The numbers are constants in `llm.py`, and a test checks that the `RetryPolicy` of the graph's model nodes has the same values, so the two systems of the evaluation cannot drift apart. The `RetryPolicy` line in `graph.py` uses the constants too. One difference remains: LangGraph adds a random wait of up to one second to each pause (jitter), the baseline does not. Every attempt is counted in `llm_calls` in both systems.
 
 ## The reviewed code is untrusted input (for the README architecture section)
@@ -115,7 +117,7 @@ Not checked yet:
 
 ## Part 4: status (2026-11-16)
 
-4.1 to 4.4 are written and committed. `pytest` passes offline with 201 tests. The code of 4.4 is complete; its checkpoint with the real model is the first open point below.
+4.1 to 4.5 are written; 4.1 to 4.4 are committed. `pytest` has 212 offline tests. The code of 4.4 is complete; its checkpoint with the real model is the first open point below.
 
 What a real run has shown (dev unit 20, `gemini-3.5-flash`): the look-up loop with a budget of 8 (the model stopped after 6 calls) and of 2, and one whole run with a budget of 2: 1 draft finding (lines 52-54, high, logic: the `DurationField` defect the baseline also found), verified as supported, 1 finding and 0 dropped.
 
@@ -124,8 +126,7 @@ What only the scripted model has shown (`tests/test_agent.py`, no network): a to
 Not done yet:
 
 1. The 4.4 checkpoint with the real model: `scripts/try_baseline.py 20` against `scripts/try_agent.py 20`, and one run with a broken API key. `review_agent`, the usage callback, the retry policy and the prompt section about the tools have not run against Gemini, because the daily quota was used up.
-2. 4.5, first layer: the routing functions as plain functions. `after_lookup` and `after_tools` are defined inside `build_graph`, so they cannot be imported by a test as they are. The second layer (the whole graph with a scripted model) is covered by `tests/test_agent.py`.
-3. The daily quota of 20 requests against an evaluation of several hundred (see Problems).
+2. The daily quota of 20 requests against an evaluation of several hundred (see Problems).
 
 ## Problems
 
