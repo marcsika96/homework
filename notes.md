@@ -30,6 +30,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Claude Code | Exercise 4.4, the rest, written by Claude Code at my request: `review_agent`, `_review_with_graph` and `recursion_limit` at the end of `graph.py` (below a comment line that marks them), `UsageCallback` in `llm.py`, `scripts/draw_graph.py` and the generated `docs/architecture.md`, `scripts/try_agent.py`, the scripted chat model in `tests/conftest.py` and `tests/test_agent.py` (15 offline tests of the whole graph). Everything above the marker line in `graph.py` (state, the six nodes, routing, wiring, retry policy) is mine. |
 | 2026-11-16 | Claude Code | Gave the baseline the same retry rule as the agent: retry loop in `baseline.py`, the shared numbers `RETRY_MAX_ATTEMPTS`, `RETRY_INITIAL_INTERVAL`, `RETRY_BACKOFF_FACTOR` and `retry_wait` in `llm.py`, four tests in `tests/test_baseline.py`. |
 | 2026-11-16 | Claude Code | Exercise 4.5, written by Claude Code at my request: `tests/test_graph.py` with 11 tests. Layer 1 calls `after_lookup`, `after_tools` and `fan_out` as plain functions; layer 2 is the scripted run of the plan (three tool calls, two findings, one supported and one not) with a budget of 8 and of 2. |
+| 2026-11-16 | Claude Code | Wrote `scripts/bench_local.py` and ran it with three local Ollama models on dev unit 20 to look for a free model for the evaluation (results under Problems). |
+| 2026-11-16 | Ollama (`phi4-mini`, `qwen3.5:4b`, `qwen3.5:9b`) | The local models of that benchmark: baseline and agent on one dev unit. |
 
 
 ## Decisions
@@ -117,7 +119,7 @@ Not checked yet:
 
 ## Part 4: status (2026-11-16)
 
-4.1 to 4.5 are written; 4.1 to 4.4 are committed. `pytest` has 212 offline tests. The code of 4.4 is complete; its checkpoint with the real model is the first open point below.
+4.1 to 4.5 are written and committed. `pytest` has 212 offline tests. The code of 4.4 is complete; its checkpoint with the real model is the first open point below.
 
 What a real run has shown (dev unit 20, `gemini-3.5-flash`): the look-up loop with a budget of 8 (the model stopped after 6 calls) and of 2, and one whole run with a budget of 2: 1 draft finding (lines 52-54, high, logic: the `DurationField` defect the baseline also found), verified as supported, 1 finding and 0 dropped.
 
@@ -126,10 +128,19 @@ What only the scripted model has shown (`tests/test_agent.py`, no network): a to
 Not done yet:
 
 1. The 4.4 checkpoint with the real model: `scripts/try_baseline.py 20` against `scripts/try_agent.py 20`, and one run with a broken API key. `review_agent`, the usage callback, the retry policy and the prompt section about the tools have not run against Gemini, because the daily quota was used up.
-2. The daily quota of 20 requests against an evaluation of several hundred (see Problems).
+2. The daily quota of 20 requests against an evaluation of several hundred. The plan is Google Colab with a larger open model for the evaluation, and the offline tests plus the 20 requests per day until then (see the last entry of Problems). Colab is not tried yet.
 
 ## Problems
 
 - 2026-11-12: `gemini-3.8-flash` was not usable in the afternoon: `503 UNAVAILABLE` ("model is currently experiencing high demand") and `504 DEADLINE_EXCEEDED`, even for a 48-token request. The same review request sent to the other models at 15:40: `gemini-3.8-flash` 504 after 94 s; `gemini-3.7-flash` 503; `gemini-3.6-flash` 503 (and it ignores `temperature`); `gemini-2.5-flash` 404, no longer available; `gemini-3.5-flash` OK in 24 s; `gemini-3.5-flash-lite` OK in 6.5 s, but it ignores `temperature` and does not think. The checkpoint was run with `GEMINI_MODEL=gemini-3.5-flash`.
 - 2026-11-12: `pip install -c <lab requirements URL> ...` ignored every pin and installed the newest versions (langchain 1.5.0, langgraph 1.2.20). Cause: my laptop is Windows on ARM running x64 Python, where `platform.machine()` returns `ARM64`, and every line of the lab file carries the marker `platform_machine == 'AMD64' and sys_platform == 'win32'`. Fix: evaluated the markers with `platform_machine` set to `AMD64`, wrote the matching lines to a plain constraints file without markers, and reinstalled into a fresh venv with that file. `pip check` reports no broken requirements. `requirements.txt` has no markers, so it installs the same versions on any machine.
 - 2026-11-16: The Gemini free tier allows 20 requests per day and model, and the agent used them up. `scripts/try_graph.py 17` failed on its eighth `lookup` call with `429 RESOURCE_EXHAUSTED` (quota `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, limit 20, retry in 18 h). The 20 requests of the day: 2 + 7 + 4 + 7 in four runs of the graph. One agent review with the full budget is up to 9 `lookup` calls, 1 `write_findings` call and 1 call per finding, so about two reviews per day fit. The evaluation (36 test units, agent and baseline, plus the judge) needs several hundred requests and does not fit into the free tier of one model before the deadline. Not solved yet. Two more observations from the error: the quota is counted for `gemini-3.6-flash` although the request names `gemini-3.5-flash`, and the run ended with a traceback from inside LangGraph (a readable error is part of Exercise 4.4).
+- 2026-11-16: I will not pay for API usage, so I looked for a local model that could run the evaluation on my laptop (Surface Pro, Snapdragon X Plus, 16 GB RAM, Ollama on the CPU only). `scripts/bench_local.py` runs the baseline and the agent (budget 2) on dev unit 20, `I3:app/studio/database/classes.py`, which has the known `DurationField` defect at lines 52–54:
+
+  | Model | Baseline | Agent | Tool calls | Result |
+  |-------|----------|-------|------------|--------|
+  | `phi4-mini:3.8b-q4_K_M` | 293 s | 696 s | 0 | no findings in either run |
+  | `qwen3.5:4b` | 609 s | 1,583 s | 0 | one finding (a function said to be defined twice, lines 48–75), which the agent's self-check dropped; the known defect was missed |
+  | `qwen3.5:9b` | – | – | – | stopped after 3 h 10 min without a result; the model did not fit into memory (0.09 GB RAM free) |
+
+  Structured output worked in every finished call, but no model called a tool and none found the defect. At the speed of `qwen3.5:4b` the 36 test units would take about 22 hours. I have not checked whether the duplicate-function finding is true. The full results are in `out/bench_local.jsonl` (not in git). Decision: until the evaluation I develop with the offline tests and the 20 Gemini requests per day; for the evaluation I will try a free GPU notebook (Google Colab) with a larger model served by Ollama. Not tried yet.
