@@ -74,9 +74,10 @@ def run_review(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     # Step 3: only now create the model. A missing key raises ConfigError here,
-    # and a missing Ollama server or model raises OllamaError.
+    # and a local model that cannot be used raises OllamaError. Only the agent
+    # calls tools, so only the agent needs a model with tool support.
     model = get_chat_model()
-    check_ollama()
+    check_ollama(needs_tools=args.system == "agent")
     on_step = print_step if args.verbose else None
 
     # Step 4: one file after the other. review_agent and review_baseline do not

@@ -2,6 +2,20 @@
 
 Things that are known and not done, each with the reason. When one is done, move the result to `notes.md` and delete the entry here.
 
+## From Exercise 5.4 (local path)
+
+### The agent has not run with the default local model
+
+- **What:** `OLLAMA_MODEL` defaults to `qwen2.5-coder:7b`, the example of the specification. Only its baseline has run (559 s on dev unit 20). The agent has run with `phi4-mini` and `qwen3.5:4b` only.
+- **Why not done:** one agent review with this model is an estimated 20 to 30 minutes of full CPU load on the laptop, and long local runs are started by me, overnight.
+- **If it is done later:** `LLM_PROVIDER=ollama`, then `python scripts/try_agent.py 20 2`. If it is no better than `phi4-mini` and slower, make `phi4-mini:3.8b-q4_K_M` the default in `config.py` and `.env.example` and update the example in the specification.
+
+### A whole commit has not been reviewed with a local model
+
+- **What:** the checkpoint of Exercise 5.2 (`reviewgraph review` on the I2 commit with `--verbose`, both report files exist) has not been run with any real model, local or Gemini.
+- **Why not done:** with `phi4-mini` the 13 files take an estimated one to two and a half hours; with the Gemini agent they need about 130 requests against 20 per day.
+- **Planned:** overnight with `phi4-mini`. The command is in the walkthrough `walkthroughs/5.4.md`.
+
 ## From Exercise 5.3 (error cases)
 
 ### An unexpected error still ends with a traceback

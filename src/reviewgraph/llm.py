@@ -107,10 +107,12 @@ class OllamaError(Exception):
     """Ollama cannot be used right now. The message says what to do about it."""
 
 
-def check_ollama(settings: Settings | None = None) -> None:
-    """Raise OllamaError if LLM_PROVIDER is ollama and the server or the model is missing.
+def check_ollama(needs_tools: bool = False, settings: Settings | None = None) -> None:
+    """Raise OllamaError if LLM_PROVIDER is ollama and the local model cannot be used.
 
-    One small request to the local server, no model call. Does nothing for Gemini.
+    Checked: the server runs, the model is installed and, with `needs_tools`
+    (the agent), the model supports tool calling. One small request to the
+    local server, no model call. Does nothing for Gemini.
     """
     settings = settings or get_settings()
     if settings.llm_provider != "ollama":
@@ -118,7 +120,14 @@ def check_ollama(settings: Settings | None = None) -> None:
 
     client = ollama.Client(host=settings.ollama_base_url, timeout=10)
     try:
-        client.show(settings.ollama_model)      # asks the server for the model's details
+        # The same information as `ollama show <model>` in the terminal.
+        details = client.show(settings.ollama_model)
+        # `capabilities` is a list such as ["completion", "tools"]; an old server sends none.
+        if needs_tools and details.capabilities and "tools" not in details.capabilities:
+            raise OllamaError(
+                f"The Ollama model {settings.ollama_model} does not support tool calling, which the agent needs. "
+                "Set OLLAMA_MODEL to a model with tool support, or use --system baseline."
+            )
     except ollama.ResponseError as e:
         if e.status_code == 404:
             raise OllamaError(

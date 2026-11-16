@@ -1,6 +1,7 @@
 """The review command on the fixture repository with a scripted model: no key, no network."""
 
 import json
+from types import SimpleNamespace
 
 import ollama
 import pytest
@@ -32,7 +33,7 @@ def use_model(monkeypatch, replies: list) -> ScriptedChatModel:
     model = ScriptedChatModel(replies=replies)
     monkeypatch.setattr(cli, "get_chat_model", lambda: model)
     # The scripted model needs no Ollama, whatever LLM_PROVIDER is in the local .env.
-    monkeypatch.setattr(cli, "check_ollama", lambda: None)
+    monkeypatch.setattr(cli, "check_ollama", lambda needs_tools: None)
     return model
 
 
@@ -263,6 +264,35 @@ def test_ollama_model_not_pulled_says_which_pull_to_run(tiny_repo, environment, 
     assert exit_code == cli.EXIT_REVIEW_FAILED
     assert "`ollama pull some-model:7b`" in error
     assert not (out_folder(tiny_repo)).exists()     # nothing was reviewed, so no report
+
+
+def shows(*capabilities: str):
+    """A stand-in for Client.show: the answer has only the one field check_ollama reads."""
+    return lambda self, model: SimpleNamespace(capabilities=list(capabilities))
+
+
+def test_agent_refuses_a_local_model_without_tool_support(tiny_repo, environment, capsys):
+    # Exercise 5.4. What `ollama show` reports for a model that cannot call tools.
+    use_ollama(environment, shows("completion"))
+
+    exit_code = cli.main(review_args(tiny_repo))
+
+    error = capsys.readouterr().err
+    assert exit_code == cli.EXIT_REVIEW_FAILED
+    assert "some-model:7b does not support tool calling" in error
+    assert "--system baseline" in error
+
+
+def test_baseline_accepts_a_local_model_without_tool_support(environment):
+    use_ollama(environment, shows("completion"))
+
+    llm.check_ollama(needs_tools=False)         # does not raise
+
+
+def test_a_local_model_with_tool_support_passes_the_check(environment):
+    use_ollama(environment, shows("completion", "tools"))
+
+    llm.check_ollama(needs_tools=True)          # does not raise
 
 
 def test_invalid_structured_output_fails_one_file_only(tiny_repo, monkeypatch, capsys):

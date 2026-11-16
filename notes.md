@@ -35,6 +35,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Claude Code | Exercise 5.1, written by Claude Code at my request: `cli.py` (the `review` command), `__main__.py`, `tests/test_cli.py` (10 offline tests), and the `on_step` argument of `review_agent` in the part of `graph.py` below the marker line, which `--verbose` uses. Claude then walked me through the code step by step. |
 | 2026-11-16 | Claude Code | Exercise 5.2, written by Claude Code at my request: `report.py` (`render_markdown`, `write_reports`), the call in `cli.py`, `tests/test_report.py` (9 tests) and one more test in `tests/test_cli.py`. The walkthroughs of 5.1 and 5.2 are saved in `walkthroughs/`. |
 | 2026-11-16 | Claude Code | Exercise 5.3, written by Claude Code at my request: `OllamaError` and `check_ollama` in `llm.py`, `one_line` in `report.py`, the handling in `cli.py`, and 7 more tests in `tests/test_cli.py` (with the three from 5.1, every row of the plan's error table has a test). Walkthrough in `walkthroughs/5.3.md`. |
+| 2026-11-16 | Claude Code | Wrote `BACKLOG.md` (what 5.3 leaves open and why) and committed 5.1 to 5.3. |
+| 2026-11-16 | Claude Code | Exercise 5.4, written by Claude Code at my request: the tool-support check in `check_ollama` (`llm.py`) with 3 tests, `ollama show` for the installed models, the section "Local path" in this file. No new model run; the numbers are from the benchmark of the same day. Walkthrough in `walkthroughs/5.4.md`. |
 
 
 ## Decisions
@@ -125,6 +127,29 @@ Not checked yet:
 
 - The `budget_exceeded` and `unknown_tool` branches of `run_tools` did not run, because the model asked for one known tool per message in both runs. The scripted model in 4.5 has to cover them.
 - `REVIEW_SYSTEM_PROMPT` does not mention the tools or the budget yet. The plan asks for both, and that the model stops asking once it has what it needs.
+
+## Local path (Exercise 5.4, 2026-11-16)
+
+How to use it: `LLM_PROVIDER=ollama` and `OLLAMA_MODEL=<model>` in `.env`, then the same commands as with Gemini. Before the first file `check_ollama` asks the local server whether it runs, whether the model is installed and, for the agent, whether the model supports tool calling. Each failure is one line that says what to do (exit 3). A model without tool support still works with `--system baseline`.
+
+Tool support according to `ollama show` (capability `tools`), all models installed on my laptop: `qwen2.5-coder:7b`, `phi4-mini:3.8b-q4_K_M`, `qwen3.5:4b`, `qwen3:1.7b`, `llama3.2:3b`, `llama3.2:1b` all list it. So the example of the specification (`qwen2.5-coder:7b`) stays.
+
+Observations on dev unit 20 (`I3:app/studio/database/classes.py`, the unit with the known `DurationField` defect), next to `gemini-3.5-flash`. The local numbers are from `scripts/bench_local.py` (agent with a budget of 2) and from the baseline checkpoint:
+
+| Model | Baseline | Agent | Tool calls | Found the known defect |
+|-------|----------|-------|------------|------------------------|
+| `gemini-3.5-flash` | 64 s | not timed | 6 with a budget of 8 | yes, baseline and agent |
+| `phi4-mini:3.8b-q4_K_M` | 293 s | 696 s | 0 | no, no findings at all |
+| `qwen3.5:4b` | 609 s | 1,583 s | 0 | no; one other finding, dropped by the self-check |
+| `qwen2.5-coder:7b` | 559 s | not run | – | no (baseline) |
+
+1. Time: one review takes 5 to 26 minutes on my laptop (CPU only), against about one minute with Gemini.
+2. Tool calls: the models list tool support, but none of them called a tool. "Supports tools" in `ollama show` means the model can produce a tool call, not that it decides to. The agent then behaves like the baseline plus a self-check, at more than twice the time.
+3. Quality: none found the defect that Gemini found. Structured output was valid in every finished call, so the path works technically.
+
+For the README (limitations): the key-free local path runs end to end and produces valid reports, but with models that fit into 16 GB of RAM without a GPU it is slow, does not use the look-up tools and misses defects that Gemini finds. It is a way to run the system without a key, not a replacement for the evaluated configuration. The other key-free path is the cached evaluation of Part 6.
+
+Not done: the agent with the default local model `qwen2.5-coder:7b`, and a whole commit through `reviewgraph review` with a local model (planned as an overnight run with `phi4-mini`). Both are in `BACKLOG.md`.
 
 ## Part 4: status (2026-11-16)
 
