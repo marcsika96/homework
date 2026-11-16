@@ -4,6 +4,7 @@ from reviewgraph.gitrepo import GitRepo
 from reviewgraph.prompts import (
     NO_RULES,
     REVIEW_SYSTEM_PROMPT,
+    build_agent_system_prompt,
     build_review_request,
     load_rules,
     render_diff,
@@ -104,3 +105,13 @@ def test_system_prompt_names_every_category_and_severity():
     for severity in ("high", "medium", "low"):
         assert f"- {severity}:" in REVIEW_SYSTEM_PROMPT
     assert "empty list" in REVIEW_SYSTEM_PROMPT
+
+
+def test_agent_system_prompt_is_the_reviewer_prompt_plus_tools_and_budget():
+    prompt = build_agent_system_prompt(5)
+    assert prompt.startswith(REVIEW_SYSTEM_PROMPT)
+    assert "at most 5 tool calls" in prompt
+    for tool_name in ("read_file", "search_code", "list_files"):
+        assert tool_name in prompt
+    # The baseline has no tools, so its prompt must not mention them.
+    assert "tool" not in REVIEW_SYSTEM_PROMPT

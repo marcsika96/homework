@@ -207,7 +207,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
     <tr><td>Does <code>review</code> skip files with fewer than 15 added lines?</td><td>No. The threshold defines evaluation units only; <code>review</code> covers every changed Python file under <code>app/studio/</code> except migrations and seed data.</td><td>1.2, 5.1</td></tr>
     <tr><td>How <em>minor</em> verdicts enter precision</td><td>Leave them out of numerator and denominator and report their count next to precision. Whatever you choose, state the formula in <code>EVALUATION.md</code>.</td><td>6.5</td></tr>
     <tr><td>Which findings are judged when a unit has more than three</td><td>High before medium, then the order in which the system reported them.</td><td>6.2</td></tr>
-    <tr><td>What counts as one of the 8 tool calls</td><td>Every executed tool call, also when one model message asks for several. Calls beyond the budget are answered with a refusal, not executed.</td><td>4.2</td></tr>
+    <tr><td>What counts as one of the 8 tool calls</td><td>Every executed tool call, also when one model message asks for several. A call to an unknown tool name counts as well, so a model that keeps inventing names still uses up the budget. Calls beyond the budget are answered with a refusal, not executed, and do not count.</td><td>4.2</td></tr>
   </tbody>
 </table></div>
 <p>How the objectives of the specification map to this guide:</p>

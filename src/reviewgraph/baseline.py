@@ -6,7 +6,16 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from reviewgraph.gitrepo import GitError, GitRepo
-from reviewgraph.llm import StructuredOutputError, add_usage, call_structured, get_chat_model, model_name
+from reviewgraph.llm import (
+    RETRY_MAX_ATTEMPTS,
+    StructuredOutputError,
+    add_usage,
+    call_structured,
+    get_chat_model,
+    is_transient_error,
+    model_name,
+    retry_wait,
+)
 from reviewgraph.prompts import REVIEW_SYSTEM_PROMPT, build_review_request, load_rules, render_diff
 from reviewgraph.schemas import ReviewOutput, ReviewResult, clean_findings
 
@@ -21,8 +30,8 @@ def review_baseline(
     """Review the change of one file in one commit with a single LLM call.
 
     Problems are reported in `result.error` instead of raising: an unknown
-    commit or an unchanged file (no LLM call is made), an API failure, or a
-    reply that is still invalid after one retry.
+    commit or an unchanged file (no LLM call is made), an API failure after
+    the retries, or a reply that is still invalid after one retry.
     """
     result = ReviewResult(unit_id=unit_id or f"{sha[:7]}:{path}", system="baseline", model=model_name())
     start = time.perf_counter()
@@ -51,14 +60,21 @@ def _review(result: ReviewResult, repo: GitRepo, sha: str, path: str, model: Bas
         SystemMessage(REVIEW_SYSTEM_PROMPT),
         HumanMessage(build_review_request(path, rules, diff)),
     ]
-    try:
-        output, raw_messages = call_structured(model, ReviewOutput, messages)
-        add_usage(result.stats, raw_messages)
-        result.findings = clean_findings(output.findings, file_text, path)
-    except StructuredOutputError as e:
-        add_usage(result.stats, e.raw_messages)
-        result.error = str(e)
-    except Exception as e:
-        # API failure after the model's own retries: rate limit, network, server error.
-        result.stats.llm_calls += 1
-        result.error = f"LLM call failed: {type(e).__name__}: {e}"
+    # The same retry rule as the RetryPolicy of the agent's model nodes in graph.py.
+    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+        try:
+            output, raw_messages = call_structured(model, ReviewOutput, messages)
+            add_usage(result.stats, raw_messages)
+            result.findings = clean_findings(output.findings, file_text, path)
+            return
+        except StructuredOutputError as e:
+            add_usage(result.stats, e.raw_messages)
+            result.error = str(e)
+            return
+        except Exception as e:
+            # API failure: rate limit, network, server error. Every attempt is a request that was sent.
+            result.stats.llm_calls += 1
+            if attempt == RETRY_MAX_ATTEMPTS or not is_transient_error(e):
+                result.error = f"LLM call failed: {type(e).__name__}: {e}"
+                return
+            time.sleep(retry_wait(attempt))

@@ -1,18 +1,30 @@
+import threading
 from functools import lru_cache
 
+import httpx
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel
 
 from reviewgraph.config import ConfigError, Settings, get_settings
 from reviewgraph.schemas import RunStats
 
-# The only retry layer for API errors (rate limit, timeout, server error) is the
-# chat model's own. Nothing else in the project retries a failed API call.
-API_MAX_RETRIES = 3
+# The chat model's own retries are switched off (max_retries=0); with two layers
+# the attempts would multiply. API errors are retried in one place per system:
+# by the RetryPolicy on the agent's model nodes in graph.py, and by the loop in
+# baseline.py. Both use these numbers and is_transient_error() below, so the
+# two systems of the evaluation are treated the same.
+RETRY_MAX_ATTEMPTS = 4          # the first try included
+RETRY_INITIAL_INTERVAL = 2.0    # seconds before the second attempt
+RETRY_BACKOFF_FACTOR = 2.0      # every further wait is this much longer: 2 s, 4 s, 8 s
+# Text in Gemini's 429 error when the daily quota is used up. The quota id is
+# "GenerateRequestsPerDayPerProjectPerModel-FreeTier"; seen on 2026-11-16.
+DAILY_QUOTA_MARKER = "PerDay"
 # Without a timeout a request that never gets an answer blocks the run for ever.
 API_TIMEOUT_SECONDS = 300
 
@@ -28,6 +40,30 @@ class StructuredOutputError(Exception):
         super().__init__(message)
         # Kept so that the tokens of the failed attempts can still be counted.
         self.raw_messages = raw_messages
+
+
+def is_transient_error(error: Exception) -> bool:
+    """True if the same model call can succeed when it is tried again a few seconds later.
+
+    Made for `RetryPolicy(retry_on=is_transient_error)`. LangGraph's default
+    retries almost every exception, also the ones waiting cannot fix.
+
+    Retried: a server error of the Gemini API (5xx), a rate limit that is not
+    the daily quota, and a timeout or a lost connection on the way to the API.
+
+    Not retried: the daily quota (it comes back the next day), a wrong key, an
+    invalid request, an unknown model, a prompt that is too long, a reply that
+    is still invalid after call_structured's own retry, a missing Ollama server
+    (the Ollama client raises the built-in ConnectionError), and any other error.
+    """
+    if isinstance(error, GoogleRateLimitError):
+        return DAILY_QUOTA_MARKER not in str(error)
+    return isinstance(error, (GoogleAPIError, httpx.TransportError))
+
+
+def retry_wait(failed_attempts: int) -> float:
+    """Seconds to wait before the next attempt, after this many failed ones."""
+    return RETRY_INITIAL_INTERVAL * RETRY_BACKOFF_FACTOR ** (failed_attempts - 1)
 
 
 @lru_cache
@@ -53,7 +89,7 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
             model=settings.gemini_model,
             api_key=settings.gemini_api_key,
             temperature=0,
-            max_retries=API_MAX_RETRIES,
+            max_retries=0,
             timeout=API_TIMEOUT_SECONDS,
             rate_limiter=get_rate_limiter(settings.requests_per_minute),
         )
@@ -111,3 +147,31 @@ def add_usage(stats: RunStats, raw_messages: list[AIMessage]) -> None:
         stats.llm_calls += 1
         stats.input_tokens += usage.get("input_tokens", 0)
         stats.output_tokens += usage.get("output_tokens", 0)
+
+
+class UsageCallback(BaseCallbackHandler):
+    """Counts every model call of a graph run into `stats`, also the failed ones.
+
+    Passed as `config={"callbacks": [UsageCallback(stats)]}` to the graph, it sees
+    the model calls of all nodes. LangChain's UsageMetadataCallbackHandler adds
+    up the tokens only; the evaluation also needs the number of calls.
+    """
+
+    def __init__(self, stats: RunStats):
+        self.stats = stats
+        # The verify_finding branches run in parallel threads.
+        self._lock = threading.Lock()
+
+    def on_llm_end(self, response, **kwargs) -> None:
+        generation = response.generations[0][0] if response.generations and response.generations[0] else None
+        message = getattr(generation, "message", None)
+        with self._lock:
+            if isinstance(message, AIMessage):
+                add_usage(self.stats, [message])
+            else:
+                self.stats.llm_calls += 1
+
+    def on_llm_error(self, error, **kwargs) -> None:
+        # A failed call is still a request that was sent, as in the baseline.
+        with self._lock:
+            self.stats.llm_calls += 1

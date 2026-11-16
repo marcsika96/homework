@@ -1,7 +1,15 @@
+import httpx
 import pytest
 from conftest import FakeModel, raw_message, reply
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai.chat_models import (
+    GoogleAPIError,
+    GoogleAuthenticationError,
+    GoogleInvalidRequestError,
+    GoogleModelNotFoundError,
+    GoogleRateLimitError,
+)
 from langchain_ollama import ChatOllama
 
 from reviewgraph.config import ConfigError, Settings
@@ -11,6 +19,7 @@ from reviewgraph.llm import (
     add_usage,
     call_structured,
     get_chat_model,
+    is_transient_error,
     model_name,
 )
 from reviewgraph.schemas import ReviewOutput, RunStats
@@ -108,3 +117,53 @@ def test_ollama_model_is_built_from_settings():
     assert model.temperature == 0
     assert model.num_ctx == OLLAMA_NUM_CTX
     assert model_name(settings) == "qwen2.5-coder:7b"
+
+
+# The 429 of 2026-11-16, shortened. The quota id is what marks the daily limit.
+DAILY_QUOTA_MESSAGE = (
+    "Error calling model 'gemini-3.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. "
+    "Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, "
+    "limit: 20. 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'. Please retry in 18h23m44s."
+)
+MINUTE_QUOTA_MESSAGE = (
+    "Error calling model 'gemini-3.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. "
+    "'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier'. Please retry in 31s."
+)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        GoogleAPIError(code=503, response_json={"error": {"code": 503, "status": "UNAVAILABLE"}}),
+        GoogleRateLimitError(MINUTE_QUOTA_MESSAGE),
+        httpx.ReadTimeout("the request timed out"),
+        httpx.ConnectError("no route to host"),
+    ],
+    ids=["server error", "rate limit per minute", "timeout", "lost connection"],
+)
+def test_errors_that_waiting_can_fix_are_retried(error):
+    assert is_transient_error(error) is True
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        GoogleRateLimitError(DAILY_QUOTA_MESSAGE),
+        GoogleAuthenticationError("Error calling model 'gemini-3.5-flash' (UNAUTHENTICATED): API key not valid."),
+        GoogleInvalidRequestError("Error calling model 'gemini-3.5-flash' (INVALID_ARGUMENT): bad request."),
+        GoogleModelNotFoundError("Error calling model 'gemini-0-flash' (NOT_FOUND): no such model."),
+        StructuredOutputError("The model did not return a valid ReviewOutput in two attempts: ...", []),
+        ConnectionError("Failed to connect to Ollama."),
+        ValueError("a bug in our own code"),
+    ],
+    ids=["daily quota", "wrong key", "invalid request", "unknown model", "invalid reply", "no Ollama server", "bug"],
+)
+def test_errors_that_waiting_cannot_fix_are_not_retried(error):
+    assert is_transient_error(error) is False
+
+
+def test_gemini_model_does_not_retry_by_itself():
+    # The RetryPolicy of the graph is the only retry layer; two layers would multiply the attempts.
+    model = get_chat_model(Settings(llm_provider="gemini", gemini_api_key="test-key"))
+
+    assert model.max_retries == 0

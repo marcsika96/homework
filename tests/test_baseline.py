@@ -1,6 +1,15 @@
-from conftest import FakeModel, reply
+import pytest
+from conftest import FakeModel, ScriptedChatModel, reply
+from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
 
 from reviewgraph.baseline import review_baseline
+from reviewgraph.graph import build_graph
+from reviewgraph.llm import (
+    RETRY_BACKOFF_FACTOR,
+    RETRY_INITIAL_INTERVAL,
+    RETRY_MAX_ATTEMPTS,
+    is_transient_error,
+)
 from reviewgraph.prompts import REVIEW_SYSTEM_PROMPT
 from reviewgraph.schemas import Finding, ReviewOutput
 
@@ -103,3 +112,62 @@ def test_invalid_output_twice_is_reported_and_both_calls_are_counted(tiny_repo):
     assert "ReviewOutput" in result.error
     assert result.findings == []
     assert (result.stats.llm_calls, result.stats.input_tokens) == (2, 1850)
+
+
+# --- Retries: the same rule as the agent's RetryPolicy ----------------------
+
+
+def overloaded() -> GoogleAPIError:
+    return GoogleAPIError(code=503, response_json={"error": {"code": 503, "status": "UNAVAILABLE"}})
+
+
+@pytest.fixture
+def waits(monkeypatch) -> list[float]:
+    """The seconds the baseline wanted to sleep, without sleeping."""
+    slept = []
+    monkeypatch.setattr("reviewgraph.baseline.time.sleep", slept.append)
+    return slept
+
+
+def test_server_error_is_retried(tiny_repo, waits):
+    model = FakeModel([overloaded(), reply(ReviewOutput(findings=[make_finding(7, 7)]))])
+
+    result = review_baseline(tiny_repo.repo, tiny_repo.second_sha, VIEWS, model=model)
+
+    assert result.error is None
+    assert result.findings == [make_finding(7, 7)]
+    assert result.stats.llm_calls == 2          # the failed attempt is counted
+    assert waits == [2.0]
+
+
+def test_server_error_on_every_attempt_ends_with_a_readable_error(tiny_repo, waits):
+    model = FakeModel([overloaded()] * RETRY_MAX_ATTEMPTS)
+
+    result = review_baseline(tiny_repo.repo, tiny_repo.second_sha, VIEWS, model=model)
+
+    assert result.error.startswith("LLM call failed: GoogleAPIError")
+    assert result.stats.llm_calls == RETRY_MAX_ATTEMPTS == 4
+    assert waits == [2.0, 4.0, 8.0]
+
+
+def test_daily_quota_is_not_retried(tiny_repo, waits):
+    quota = GoogleRateLimitError("429 RESOURCE_EXHAUSTED. 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'")
+    model = FakeModel([quota])
+
+    result = review_baseline(tiny_repo.repo, tiny_repo.second_sha, VIEWS, model=model)
+
+    assert "GoogleRateLimitError" in result.error
+    assert result.stats.llm_calls == 1 and waits == []
+
+
+def test_agent_and_baseline_use_the_same_retry_rule(tiny_repo):
+    graph = build_graph(ScriptedChatModel(), tiny_repo.repo, tiny_repo.second_sha)
+
+    for node in ("lookup", "write_findings", "verify_finding"):
+        policy = graph.builder.nodes[node].retry_policy
+        assert (policy.max_attempts, policy.initial_interval, policy.backoff_factor) == (
+            RETRY_MAX_ATTEMPTS,
+            RETRY_INITIAL_INTERVAL,
+            RETRY_BACKOFF_FACTOR,
+        )
+        assert policy.retry_on is is_transient_error
