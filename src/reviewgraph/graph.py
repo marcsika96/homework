@@ -208,6 +208,7 @@ def review_agent(
     unit_id: str | None = None,
     model: BaseChatModel | None = None,
     max_tool_calls: int | None = None,
+    on_step=None,
 ) -> ReviewResult:
     """Review the change of one file in one commit with the graph.
 
@@ -219,11 +220,15 @@ def review_agent(
 
     After a failure `findings` is empty, but `stats` and `trace` hold what
     happened up to the last finished step.
+
+    `on_step` is an optional function `on_step(node_name, update)`. It is called
+    after every graph step with what the node returned; the command line uses
+    it for --verbose.
     """
     result = ReviewResult(unit_id=unit_id or f"{sha[:7]}:{path}", system="agent", model=model_name())
     start = time.perf_counter()
     try:
-        _review_with_graph(result, repo, sha, path, model, max_tool_calls)
+        _review_with_graph(result, repo, sha, path, model, max_tool_calls, on_step)
     finally:
         result.stats.latency_s = round(time.perf_counter() - start, 3)
     return result
@@ -236,6 +241,7 @@ def _review_with_graph(
     path: str,
     model: BaseChatModel | None,
     max_tool_calls: int | None,
+    on_step=None,
 ) -> None:
     """Fill `result` with the findings or with the error."""
     # The same checks as the baseline, before any model is created or called.
@@ -258,12 +264,18 @@ def _review_with_graph(
         "callbacks": [UsageCallback(result.stats)],
     }
 
-    # stream_mode="values" yields the whole state after every step. Keeping the
-    # last one means the trace survives a failure in a later step.
+    # Two stream modes at once, so every item is a pair (mode, data):
+    # - "values" is the whole state after a step. Keeping the last one means the
+    #   trace survives a failure in a later step.
+    # - "updates" is {node name: what the node returned}, which on_step gets.
     state: dict = {}
     try:
-        for state in graph.stream({"commit": sha, "path": path}, config, stream_mode="values"):
-            pass
+        for mode, data in graph.stream({"commit": sha, "path": path}, config, stream_mode=["values", "updates"]):
+            if mode == "values":
+                state = data
+            elif on_step:
+                for node, update in data.items():
+                    on_step(node, update)
         result.findings = state.get("findings", [])
         result.dropped = state.get("dropped", [])
     except StructuredOutputError as e:

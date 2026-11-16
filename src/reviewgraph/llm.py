@@ -2,6 +2,7 @@ import threading
 from functools import lru_cache
 
 import httpx
+import ollama
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
@@ -100,6 +101,36 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
         temperature=0,
         num_ctx=OLLAMA_NUM_CTX,
     )
+
+
+class OllamaError(Exception):
+    """Ollama cannot be used right now. The message says what to do about it."""
+
+
+def check_ollama(settings: Settings | None = None) -> None:
+    """Raise OllamaError if LLM_PROVIDER is ollama and the server or the model is missing.
+
+    One small request to the local server, no model call. Does nothing for Gemini.
+    """
+    settings = settings or get_settings()
+    if settings.llm_provider != "ollama":
+        return
+
+    client = ollama.Client(host=settings.ollama_base_url, timeout=10)
+    try:
+        client.show(settings.ollama_model)      # asks the server for the model's details
+    except ollama.ResponseError as e:
+        if e.status_code == 404:
+            raise OllamaError(
+                f"The Ollama model {settings.ollama_model} is not installed. "
+                f"Run `ollama pull {settings.ollama_model}` and try again."
+            ) from None
+        raise OllamaError(f"Ollama answered with an error: {e}") from None
+    except (ConnectionError, httpx.TransportError):
+        raise OllamaError(
+            f"Ollama is not running at {settings.ollama_base_url}. "
+            "Start the Ollama app or run `ollama serve`, and try again."
+        ) from None
 
 
 def model_name(settings: Settings | None = None) -> str:
