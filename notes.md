@@ -38,6 +38,9 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Claude Code | Wrote `BACKLOG.md` (what 5.3 leaves open and why) and committed 5.1 to 5.3. |
 | 2026-11-16 | Claude Code | Exercise 5.4, written by Claude Code at my request: the tool-support check in `check_ollama` (`llm.py`) with 3 tests, `ollama show` for the installed models, the section "Local path" in this file. No new model run; the numbers are from the benchmark of the same day. Walkthrough in `walkthroughs/5.4.md`. |
 | 2026-11-16 | Claude Code | Exercise 6.1, written by Claude Code at my request: `evaluation/runner.py` (`run_units`, `RunRecord`, the stored files), the `eval` command in `cli.py`, `tests/test_runner.py` (11 offline tests). No run with a real model. Walkthrough in `walkthroughs/6.1.md`. |
+| 2026-11-16 | Claude Code | Exercise 6.2, written by Claude Code at my request: `evaluation/judge.py` (`JudgeVerdict`, `select_for_judging`, `finding_id`, `judge_finding`, `judge_runs`), `JUDGE_SYSTEM_PROMPT`, `JUDGE_REQUEST` and `build_judge_request` in `prompts.py`, `eval --judge` in `cli.py`, `tests/test_judge.py` (11 offline tests). The judge prompt has not run against a real model and has no examples yet. Walkthrough in `walkthroughs/6.2.md`. |
+| 2026-11-16 | Claude Code | Tried `eval` and `eval --judge` on one dev unit with `llama3.2:1b` into a scratch folder, fixed the Git warnings in `code_version`, wrote `runbooks/6.3-dev-runs.md` and the status section of Parts 5 and 6, and started the overnight run of the 5.2 checkpoint at my request. |
+| 2026-11-16 | Ollama (`llama3.2:1b`, `phi4-mini`) | The trial of `eval` on one dev unit, and the overnight review of the I2 commit. |
 
 
 ## Decisions
@@ -93,6 +96,10 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 - 2026-11-16: Evaluation runs are stored one file per unit and system: `data/runs/<system>/<unit id with ":" and "/" as "_">.json`. A record is the `ReviewResult` plus `prompt_version`, `max_tool_calls` (agent only), `code_version` (the commit of this repository, with `-dirty` if `src/` has uncommitted changes) and a UTC timestamp. The model name is already in the result. The files are committed: they are the cached outputs that `reviewgraph eval --cached` reads without a key.
 - 2026-11-16: Rerun rules, fixed before any evaluation run. (1) A unit whose file exists for the current model and `PROMPT_VERSION` is skipped. (2) A failed review (API error after the retries, invalid output, recursion limit) is stored with its `error`, counts as a unit without findings and is not repeated. (3) One exception: when the daily quota of the Gemini API is used up, the run stops and that unit is not stored, because no review took place; the next run starts with it. This is the same as an interrupted run, not a selective rerun: it is decided by the error type, before any result is seen. (4) A record of another model or prompt version is run again and replaced, so one evaluation never mixes two configurations. The old record stays in the Git history if it was committed.
 - 2026-11-16: `reviewgraph eval` refuses a units file that contains test units unless `--test-set` is given, so the test set cannot be run by accident before the freeze. Its default is `data/units_dev.jsonl`. At this stage `eval` only runs the systems and prints how much is stored; the judge and the metrics are added in 6.2 and 6.5.
+- 2026-11-16: The judge (`evaluation/judge.py`). It rates the medium and high findings of a stored run, high first, then reporting order, at most 3 per unit and system, as `valid`, `minor` or `invalid`, with the wording of the specification. It gets the rules, the finding, the rendered diff and the whole file with line numbers. `judge_finding` has no `system` argument, so the judge cannot see which system a finding is from. Rule for the unclear case: what the judge cannot confirm from what it is shown is `invalid`. A wrong category, severity or fix does not change the label.
+- 2026-11-16: Verdicts are stored in `data/verdicts.jsonl`, one line per finding, appended and never rewritten. The key is `finding_id`: the first 12 characters of the SHA-1 of unit id, system, lines, category and explanation. A line also holds the finding, the judge model, `JUDGE_PROMPT_VERSION`, the tokens and a timestamp. The findings are judged in an order shuffled with a fixed seed (2026).
+- 2026-11-16: Rules for the judge, fixed before any judging. (1) A finding with a verdict of the current judge model and judge prompt version is skipped. (2) A failed judgement (API error after the retries, invalid output) is not stored and is tried again on the next run. This differs from the reviews on purpose: a failed review is a result of the system under test, a failed judgement is a missing measurement. (3) The daily quota stops the judging. (4) After a change of the judge prompt the findings are judged again; the new line is appended and the later line counts. `JUDGE_PROMPT_VERSION` is separate from `PROMPT_VERSION`, because changing the judge does not change what the two systems produce.
+- 2026-11-16: `reviewgraph eval --judge` only judges, it reviews nothing; plain `eval` only reviews. They are separate steps because of the order in 6.4: test run, hand labels, then the judge. The summary of `eval` shows how many selected findings have a verdict, but not the labels, so looking at the progress does not reveal the judge's verdicts before the hand check.
 
 ## The reviewed code is untrusted input (for the README architecture section)
 
@@ -154,6 +161,22 @@ Observations on dev unit 20 (`I3:app/studio/database/classes.py`, the unit with 
 For the README (limitations): the key-free local path runs end to end and produces valid reports, but with models that fit into 16 GB of RAM without a GPU it is slow, does not use the look-up tools and misses defects that Gemini finds. It is a way to run the system without a key, not a replacement for the evaluated configuration. The other key-free path is the cached evaluation of Part 6.
 
 Not done: the agent with the default local model `qwen2.5-coder:7b`, and a whole commit through `reviewgraph review` with a local model (planned as an overnight run with `phi4-mini`). Both are in `BACKLOG.md`.
+
+## Parts 5 and 6: status (2026-11-16, evening)
+
+Written and committed: 5.1 to 5.4 (the `review` command, the reports, the error cases, the local path), 6.1 (resumable runner, `reviewgraph eval`) and 6.2 (the judge, `reviewgraph eval --judge`). `pytest` has 264 offline tests. Each exercise has a walkthrough in `walkthroughs/`, and what is known and not done is in `BACKLOG.md` with the reason.
+
+What a real model has shown so far:
+
+- `reviewgraph eval` and `reviewgraph eval --judge` ran end to end on one dev unit (`I1:app/studio/backend/pages.py`) with `llama3.2:1b` through Ollama, into a scratch folder: baseline 69 s and 4 findings, agent 101 s and 0 findings, 3 findings judged. This only shows that the commands work; the model is too small for its findings to mean anything. The run showed one flaw, which is fixed: Git warnings from `code_version` were printed between the progress lines.
+- The two Ollama error cases of 5.3 (model not installed, server not reachable) against the real server.
+
+Running or waiting:
+
+1. The 5.2 checkpoint with a local model: `reviewgraph review` on the I2 commit (`94725b9`, 13 files) with `phi4-mini` and `--verbose`, started on 2026-11-16 in the evening. Log in `out\checkpoint-5.2.log`, reports in `out\94725b9\`. The result is not in these notes yet.
+2. The dev runs of 6.3. The commands, the rules and the two options (local model, Gemini baseline) are in `runbooks/6.3-dev-runs.md`. Nothing is stored in `data/runs/` yet.
+
+Still open from before: the judge prompt has no examples, the judge and the agent have not run on Gemini through the new commands, the 4.4 checkpoint, and the question where the requests for the evaluation come from (Colab is not tried).
 
 ## Part 4: status (2026-11-16)
 

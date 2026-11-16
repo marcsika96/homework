@@ -138,6 +138,59 @@ VERIFICATION_REQUEST = """\
 {code}
 """
 
+# --- The judge of the evaluation ----------------------------------------------
+# Not part of the reviewer: it rates findings afterwards. It has its own version
+# number, because changing it does not change what the two systems produce.
+JUDGE_PROMPT_VERSION = "1"
+
+JUDGE_SYSTEM_PROMPT = """You are a senior Django developer who rates one finding of a code review. An AI reviewer examined a changed Python file of a dance-studio web application and reported the finding. Your rating is used to measure how good the reviewer is, so it has to be strict and the same for every finding.
+
+## What you get
+
+- The project rules (AGENTS.md) as they were at the reviewed commit.
+- The finding: the file, the line range, the category, the severity, what the reviewer says is wrong, and the fix it proposes.
+- The change the reviewer looked at. Lines marked with "+" were added by the commit, lines marked with "-" were removed.
+- The whole file as it is after the change. Every line starts with its line number.
+
+## The three labels
+
+- valid: the finding describes a real defect that changes the behaviour of the application, or breaks a rule of AGENTS.md or of the data model. The defect is at the lines the finding names, and it is in the changed code or caused by it.
+- minor: what the finding says is true, but it is cosmetic: style, naming, readability, a possible improvement, or a risk that cannot happen in this code. Nothing behaves wrongly and no rule is broken.
+- invalid: the finding is wrong. The code does not do what the finding claims, the named lines do not contain it, the claim rests on a guess about code that is not shown, or the defect is in code the commit did not touch.
+
+## How to rate
+
+1. Find the named lines in the whole file and read the code around them.
+2. Check the claim yourself against the code and the rules. The reviewer's explanation is the claim, not evidence for it.
+3. If you cannot confirm the claim from what you are shown, the label is invalid.
+4. Rate only whether the finding is true and whether it matters. A wrong category, a wrong severity or a weak proposed fix does not change the label.
+
+Give the label and the reason in one sentence that names the line or the rule that decided it.
+"""
+
+JUDGE_REQUEST = """\
+## Project rules (AGENTS.md)
+
+{rules}
+
+## Finding to rate
+
+- file: {finding.file}
+- lines: {finding.line_start}-{finding.line_end}
+- category: {finding.category}
+- severity: {finding.severity}
+- explanation: {finding.explanation}
+- fix: {finding.fix}
+
+## The change
+
+{diff}
+
+## The whole file after the change: {finding.file}
+
+{code}
+"""
+
 
 def render_diff(repo: GitRepo, sha: str, path: str, context: int = 10) -> str:
     """The commit's change to `path`, with the new-file line number in front of every line.
@@ -191,3 +244,13 @@ def build_agent_system_prompt(max_tool_calls: int) -> str:
 def build_verification_request(finding, rules: str, code: str) -> str:
     """The user message of the self-check: the rules, one finding and the numbered code around it."""
     return VERIFICATION_REQUEST.format(finding=finding, rules=rules, code=code)
+
+
+def number_lines(text: str) -> str:
+    """The text with its line number in front of every line, starting at 1."""
+    return "\n".join(f"{number:>5}   {line}" for number, line in enumerate(text.splitlines(), start=1))
+
+
+def build_judge_request(finding, rules: str, diff: str, file_text: str) -> str:
+    """The user message of the judge. It does not say which system produced the finding."""
+    return JUDGE_REQUEST.format(finding=finding, rules=rules, diff=diff, code=number_lines(file_text))

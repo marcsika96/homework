@@ -10,6 +10,7 @@ import sys
 
 from reviewgraph.baseline import review_baseline
 from reviewgraph.config import ConfigError, get_settings
+from reviewgraph.evaluation.judge import VERDICTS_PATH, finding_id, judge_runs, load_verdicts, select_for_judging
 from reviewgraph.evaluation.runner import RUNS_DIR, load_records, load_units, run_units
 from reviewgraph.gitrepo import GitError, GitRepo
 from reviewgraph.graph import review_agent
@@ -41,6 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--cached", action="store_true", help="Run nothing, only read the stored runs (needs no key)")
     evaluate.add_argument("--test-set", action="store_true", help="Allow units of the test set (only after the freeze)")
     evaluate.add_argument("--runs", default=str(RUNS_DIR), help="Folder of the stored runs")
+    evaluate.add_argument("--judge", action="store_true",
+                          help="Review nothing; let the judge rate the stored findings that have no verdict yet")
+    evaluate.add_argument("--verdicts", default=str(VERDICTS_PATH), help="File of the judge's verdicts")
     return parser
 
 
@@ -130,21 +134,29 @@ def run_eval(args: argparse.Namespace) -> int:
         return EXIT_BAD_INPUT
     systems = ["baseline", "agent"] if args.system == "both" else [args.system]
 
-    # Step 2: run what is not stored yet. With --cached this step is left out,
-    # so no repository, key or model is needed.
+    # Step 2: the work that needs a model. One of three:
+    #   --cached   nothing, so no repository, key or model is needed
+    #   --judge    the judge rates the stored findings
+    #   (default)  the systems review the units that are not stored yet
     quota_used_up = False
     if not args.cached:
         repo = GitRepo(get_settings().target_repo_path)
         model = get_chat_model()
-        check_ollama(needs_tools="agent" in systems)
-        for system in systems:
-            summary = run_units(units, system, repo, model, runs_dir=args.runs)
-            if summary["quota_used_up"]:
-                quota_used_up = True
-                break
+        if args.judge:
+            check_ollama()
+            summary = judge_runs(units, systems, repo, model, runs_dir=args.runs, verdicts_path=args.verdicts)
+            quota_used_up = summary["quota_used_up"]
+        else:
+            check_ollama(needs_tools="agent" in systems)
+            for system in systems:
+                summary = run_units(units, system, repo, model, runs_dir=args.runs)
+                if summary["quota_used_up"]:
+                    quota_used_up = True
+                    break
 
     # Step 3: a summary of what is stored for these units.
     print()
+    verdicts = load_verdicts(args.verdicts)
     for system in systems:
         records = load_records(units, system, runs_dir=args.runs)
         results = [record.result for record in records]
@@ -153,6 +165,13 @@ def run_eval(args: argparse.Namespace) -> int:
               f"{sum(1 for result in results if result.error)} failed, "
               f"{sum(result.stats.llm_calls for result in results)} LLM calls, "
               f"{sum(result.stats.latency_s for result in results):.0f} s")
+
+        # How many of the findings chosen for the judge have a verdict. The
+        # labels are not counted here: that is the job of the metrics (6.5).
+        chosen = [finding_id(result.unit_id, system, finding)
+                  for result in results for finding in select_for_judging(result)]
+        judged = [identifier for identifier in chosen if identifier in verdicts]
+        print(f"    judge: {len(judged)} of {len(chosen)} selected findings have a verdict")
 
     if quota_used_up:
         print("Stopped: the daily quota is used up. Run the same command again tomorrow to continue.", file=sys.stderr)

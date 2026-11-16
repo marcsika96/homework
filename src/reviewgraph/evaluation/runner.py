@@ -52,7 +52,10 @@ def code_version() -> str:
             ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
         ).stdout.strip()
         # Exit code 1 of `git diff --quiet` means "there are differences".
-        changed = subprocess.run(["git", "-C", str(ROOT), "diff", "--quiet", "HEAD", "--", "src"]).returncode
+        # capture_output keeps git's warnings (for example about line endings) off the screen.
+        changed = subprocess.run(
+            ["git", "-C", str(ROOT), "diff", "--quiet", "HEAD", "--", "src"], capture_output=True
+        ).returncode
         return commit + ("-dirty" if changed else "")
     except (OSError, subprocess.CalledProcessError):
         return "unknown"

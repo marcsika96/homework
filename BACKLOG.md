@@ -2,6 +2,25 @@
 
 Things that are known and not done, each with the reason. When one is done, move the result to `notes.md` and delete the entry here.
 
+## From Exercise 6.2 (the judge)
+
+### The judge prompt has no examples
+
+- **What:** the plan asks for one short example per label (`valid`, `minor`, `invalid`) in the judge prompt, taken from the dev units. `JUDGE_SYSTEM_PROMPT` defines the three labels but has no examples.
+- **Why not done:** the examples have to be real findings of the dev units whose label I have checked myself. There is only one real dev finding so far (the `DurationField` one, not yet confirmed by running the code). Invented examples would not be "taken from the dev units", and a wrong example would teach the judge the wrong thing.
+- **If it is done later:** in 6.3, after the dev runs: pick one finding per label, check each by hand, add them to `JUDGE_SYSTEM_PROMPT` and bump `JUDGE_PROMPT_VERSION`.
+
+### The judge has never run against a real model
+
+- **What:** `judge_runs` and the prompt are tested with the scripted model only. Whether `gemini-3.5-flash` follows the label definitions, and how long and expensive one judgement is, is not known. The judge sees the whole file plus the diff plus `AGENTS.md`, roughly 6,000 to 10,000 input tokens per finding (my estimate from the baseline's token counts).
+- **Why not done:** there are no stored dev runs to judge yet, and the Gemini quota of 2026-11-16 is used up.
+- **If it is done later:** after the first dev runs, `reviewgraph eval --judge --limit 3`. One request per finding.
+
+### Verdicts of removed findings stay in the file
+
+- **What:** when a unit is reviewed again with a new prompt, its findings get new ids. The verdicts of the old findings stay in `data/verdicts.jsonl`.
+- **Why not done:** the file is append-only on purpose, so nothing is ever lost, and the later stages look up verdicts by the ids of the current findings, so old lines are ignored. Cleaning up would need a rewrite of the file.
+
 ## From Exercise 6.1 (resumable runner)
 
 ### The checkpoint has not been run with a real model
