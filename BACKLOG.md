@@ -43,11 +43,17 @@ Things that are known and not done, each with the reason. When one is done, move
 - **Why not done:** one agent review with this model is an estimated 20 to 30 minutes of full CPU load on the laptop, and long local runs are started by me, overnight.
 - **If it is done later:** `LLM_PROVIDER=ollama`, then `python scripts/try_agent.py 20 2`. If it is no better than `phi4-mini` and slower, make `phi4-mini:3.8b-q4_K_M` the default in `config.py` and `.env.example` and update the example in the specification.
 
-### A whole commit has not been reviewed with a local model
+### A whole commit has not been reviewed with Gemini
 
-- **What:** the checkpoint of Exercise 5.2 (`reviewgraph review` on the I2 commit with `--verbose`, both report files exist) has not been run with any real model, local or Gemini.
-- **Why not done:** with `phi4-mini` the 13 files take an estimated one to two and a half hours; with the Gemini agent they need about 130 requests against 20 per day.
-- **Planned:** overnight with `phi4-mini`. The command is in the walkthrough `walkthroughs/5.4.md`.
+- **What:** the checkpoint of Exercise 5.2 (`reviewgraph review` on the I2 commit with `--verbose`) has run with `phi4-mini` only (result in `notes.md`, "5.2 checkpoint with a local model"). That run shows the command and the reports, but not tool use or finding quality, because the local model made no tool calls.
+- **Why not done:** the Gemini agent needs about 130 requests for the 13 files, against 20 per day.
+- **If it is done later:** when there is a source of requests for the evaluation (Colab or another one), the same command without the `$env:` lines.
+
+### A cut-off answer of a local model is not reported
+
+- **What:** when a local model reaches `OLLAMA_NUM_PREDICT` (4,096 tokens), Ollama stops the answer and marks it with `done_reason: "length"`. Nothing records this. In the 5.2 checkpoint three `lookup` answers were cut off, and the report says "Reviewed, no findings" for those files like for any other.
+- **Why not done:** it concerns only the local path, which is not the evaluated configuration, and the run stats (LLM calls, tokens) already show it indirectly: 4,096 or a few more output tokens in one file.
+- **If it is done later:** count the answers with `done_reason == "length"` in `UsageCallback` (`llm.py`) as a new field of `RunStats`, and show the number in the report.
 
 ## From Exercise 5.3 (error cases)
 

@@ -41,6 +41,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Claude Code | Exercise 6.2, written by Claude Code at my request: `evaluation/judge.py` (`JudgeVerdict`, `select_for_judging`, `finding_id`, `judge_finding`, `judge_runs`), `JUDGE_SYSTEM_PROMPT`, `JUDGE_REQUEST` and `build_judge_request` in `prompts.py`, `eval --judge` in `cli.py`, `tests/test_judge.py` (11 offline tests). The judge prompt has not run against a real model and has no examples yet. Walkthrough in `walkthroughs/6.2.md`. |
 | 2026-11-16 | Claude Code | Tried `eval` and `eval --judge` on one dev unit with `llama3.2:1b` into a scratch folder, fixed the Git warnings in `code_version`, wrote `runbooks/6.3-dev-runs.md` and the status section of Parts 5 and 6, and started the overnight run of the 5.2 checkpoint at my request. |
 | 2026-11-16 | Ollama (`llama3.2:1b`, `phi4-mini`) | The trial of `eval` on one dev unit, and the overnight review of the I2 commit. |
+| 2026-11-18 | Claude Code | Went through the result of the overnight run with me (checked the two dropped findings against the commit, worked out from the call counts which call hit the output limit), wrote the section "5.2 checkpoint with a local model" and updated `BACKLOG.md`. |
 
 
 ## Decisions
@@ -161,7 +162,25 @@ Observations on dev unit 20 (`I3:app/studio/database/classes.py`, the unit with 
 
 For the README (limitations): the key-free local path runs end to end and produces valid reports, but with models that fit into 16 GB of RAM without a GPU it is slow, does not use the look-up tools and misses defects that Gemini finds. It is a way to run the system without a key, not a replacement for the evaluated configuration. The other key-free path is the cached evaluation of Part 6.
 
-Not done: the agent with the default local model `qwen2.5-coder:7b`, and a whole commit through `reviewgraph review` with a local model (planned as an overnight run with `phi4-mini`). Both are in `BACKLOG.md`.
+Not done: the agent with the default local model `qwen2.5-coder:7b` (in `BACKLOG.md`). A whole commit through `reviewgraph review` with a local model is done, see the next section.
+
+## 5.2 checkpoint with a local model (2026-11-16/17)
+
+`reviewgraph review --repo C:/Work/dance-studio-webapp --commit 94725b9 --verbose` with `phi4-mini:3.8b-q4_K_M`, the second attempt after the `OLLAMA_NUM_PREDICT` fix (the first one got stuck, see Problems). Started about 22:30 through `scripts\run_awake.ps1`, finished 2026-11-17 00:22 with exit code 0. Log in `out\checkpoint-5.2.log`, reports in `out\94725b9\review.md` and `review.json` (not in git).
+
+| | |
+|---|---|
+| Files | 13, none failed |
+| Time | 6,985 s (116 min); per file median 308 s, from 70 s to 1,505 s |
+| LLM calls | 28 (2 per file, 4 in the file with draft findings) |
+| Tool calls | 0 |
+| Tokens | 139,208 in, 16,031 out |
+| Findings | 0; 2 draft findings in `context_processors.py`, both dropped by the self-check |
+
+1. **The command works end to end on a whole commit:** all 13 files, both reports written, the `--verbose` steps in the log. This is the checkpoint of 5.2.
+2. **The self-check dropped two false findings, correctly.** Both were in `app/studio/context_processors.py`. "A signed-in user can see items they should not" (lines 9-11): the items are chosen per role through `ITEMS_OF`, and a user who is not signed in gets none (line 36). "`teacher-requests` comes after `notification-preferences`" (line 11): `TEACHER_ITEMS` has no `teacher-requests`, and `HEAD_TEACHER_ITEMS` already puts it before (line 18). The first real run in which `verify_finding` rejected wrong findings; a good example for the README and the video.
+3. **The output limit worked, and it cost most of the time.** Three files (`backend/responses.py`, `system/page_views.py`, `usecases/notification_preferences.py`) have 4,105 output tokens: one answer cut at 4,096 plus a few tokens. It was the `lookup` answer, not the findings: a cut JSON answer would not validate and would be asked again, which would show 3 calls instead of 2. These three files took 4,408 s, 63 % of the run. The cut is not reported anywhere (`BACKLOG.md`).
+4. **Not shown:** tool use and the quality of the findings, because `phi4-mini` made no tool calls, as in the benchmark. The agent behaved like the baseline plus a self-check. The Gemini run of this checkpoint stays open (`BACKLOG.md`).
 
 ## Parts 5 and 6: status (2026-11-16, evening)
 
@@ -174,7 +193,7 @@ What a real model has shown so far:
 
 Running or waiting:
 
-1. The 5.2 checkpoint with a local model: `reviewgraph review` on the I2 commit (`94725b9`, 13 files) with `phi4-mini` and `--verbose`, started on 2026-11-16 in the evening. Log in `out\checkpoint-5.2.log`, reports in `out\94725b9\`. The result is not in these notes yet.
+1. The 5.2 checkpoint with a local model: finished on 2026-11-17, result in "5.2 checkpoint with a local model" above.
 2. The dev runs of 6.3. The commands, the rules and the two options (local model, Gemini baseline) are in `runbooks/6.3-dev-runs.md`. Nothing is stored in `data/runs/` yet.
 
 Still open from before: the judge prompt has no examples, the judge and the agent have not run on Gemini through the new commands, the 4.4 checkpoint, and the question where the requests for the evaluation come from (Colab is not tried).
