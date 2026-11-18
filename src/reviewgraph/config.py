@@ -22,6 +22,11 @@ class Settings(BaseModel):
     # going. 4,096 stops such runaways on the laptop; a thinking model on a GPU
     # (qwen3.5:9b on Colab) needs more, so the Colab notebook sets a higher value.
     ollama_num_predict: int = Field(4096, gt=0)
+    # Ollama's context window: the prompt AND the answer, thinking included, must
+    # fit. Ollama's own default is small and it cuts longer prompts without a
+    # warning. A diff, AGENTS.md and a few tool results take 10-13k tokens, so on
+    # the GPU (Colab) the notebook sets 32,768 to leave room for the thinking.
+    ollama_num_ctx: int = Field(16384, gt=0)
     target_repo_path: str = "data/target"
     max_tool_calls: int = 8
     requests_per_minute: float = 10

@@ -14,7 +14,6 @@ from langchain_ollama import ChatOllama
 
 from reviewgraph.config import ConfigError, Settings
 from reviewgraph.llm import (
-    OLLAMA_NUM_CTX,
     StructuredOutputError,
     add_usage,
     call_structured,
@@ -115,15 +114,18 @@ def test_ollama_model_is_built_from_settings():
 
     assert isinstance(model, ChatOllama)
     assert model.temperature == 0
-    assert model.num_ctx == OLLAMA_NUM_CTX
+    assert model.num_ctx == 16384         # Ollama's own default would cut the prompt
     assert model.num_predict == 4096      # a local model cannot write for ever
     assert model_name(settings) == "qwen2.5-coder:7b"
 
 
-def test_ollama_answer_limit_comes_from_settings():
-    settings = Settings(llm_provider="ollama", ollama_num_predict=16384)
+def test_ollama_answer_limit_and_context_come_from_settings():
+    settings = Settings(llm_provider="ollama", ollama_num_predict=16384, ollama_num_ctx=32768)
 
-    assert get_chat_model(settings).num_predict == 16384
+    model = get_chat_model(settings)
+
+    assert model.num_predict == 16384
+    assert model.num_ctx == 32768
 
 
 # The 429 of 2026-11-16, shortened. The quota id is what marks the daily limit.

@@ -29,10 +29,8 @@ DAILY_QUOTA_MARKER = "PerDay"
 # Without a timeout a request that never gets an answer blocks the run for ever.
 API_TIMEOUT_SECONDS = 300
 
-# Ollama's default context window is small and it cuts longer prompts without a
-# warning. A diff plus AGENTS.md plus tool results needs more.
-OLLAMA_NUM_CTX = 16384
-# The limit of one answer's length is the setting OLLAMA_NUM_PREDICT (config.py).
+# The context window and the limit of one answer's length of a local model are
+# the settings OLLAMA_NUM_CTX and OLLAMA_NUM_PREDICT (config.py).
 
 
 class StructuredOutputError(Exception):
@@ -100,7 +98,7 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
         temperature=0,
-        num_ctx=OLLAMA_NUM_CTX,
+        num_ctx=settings.ollama_num_ctx,
         num_predict=settings.ollama_num_predict,
     )
 

@@ -42,6 +42,18 @@ def make_tools(repo: GitRepo, sha: str) -> list:
     """
     sha = repo.resolve(sha)
 
+    def under_app(path: str) -> tuple[str, str]:
+        """The path to use, and a note for the answer ("" if the path is used as given).
+
+        Models often leave out the app/ in front (studio/forms.py for
+        app/studio/forms.py). On 2026-11-18 qwen3.5:9b spent 4 of its 8 tool
+        calls on such paths and their "Did you mean ...?" answers. A path that
+        does not exist, but does under app/, is therefore used there.
+        """
+        if path.startswith("app/") or repo.ls(sha, path) or not repo.ls(sha, "app/" + path):
+            return path, ""
+        return "app/" + path, f"[{path} is not in the project; used app/{path}]\n"
+
     def suggest(path: str) -> str:
         """A "Did you mean ...?" sentence for a path that does not exist, or ""."""
         files = [file for file in repo.ls(sha) if is_readable(file)]
@@ -65,41 +77,46 @@ def make_tools(repo: GitRepo, sha: str) -> list:
             path = clean_path(path)
             if not is_readable(path):
                 return f"Refused: {path} may contain secrets and cannot be read."
-            if start_line < 1:
-                return f"Invalid start_line {start_line}. Lines are counted from 1."
-            if end_line == 0:
-                end_line = start_line + MAX_LINES - 1
-            if end_line < start_line:
-                return f"Invalid line range {start_line}-{end_line}. end_line must not be smaller than start_line."
-            try:
-                text = repo.read(sha, path)
-                if "\0" in text:
-                    return f"{path} is a binary file and cannot be shown."
-                lines = text.splitlines()
-            except PathNotFound:
-                if repo.ls(sha, path):
-                    return f"{path} is a directory. Use list_files to see its files."
-                return f"No such file at this commit: {path}.{suggest(path)}"
-
-            if not lines:
-                return f"{path} is empty."
-            if start_line > len(lines):
-                return f"{path} has only {len(lines)} lines; start_line {start_line} is after the end."
-
-            end_line = min(end_line, start_line + MAX_LINES - 1, len(lines))
-            numbered = [
-                f"{number:>5}   {shorten(lines[number - 1], MAX_LINE_LENGTH)}" for number in range(start_line, end_line + 1)
-            ]
-            if end_line < len(lines):
-                numbered.append(
-                    f"[lines {start_line}-{end_line} of {len(lines)}; "
-                    f"call again with start_line={end_line + 1} for more]"
-                )
-            return "\n".join(numbered)
+            path, note = under_app(path)
+            return note + read_lines(path, start_line, end_line)
         except PathNotFound as e:
             return f"Refused: {e}"
         except GitError as e:
             return f"Could not read {path}: {e}"
+
+    def read_lines(path: str, start_line: int, end_line: int) -> str:
+        """The body of read_file for a clean path; raises like GitRepo."""
+        if start_line < 1:
+            return f"Invalid start_line {start_line}. Lines are counted from 1."
+        if end_line == 0:
+            end_line = start_line + MAX_LINES - 1
+        if end_line < start_line:
+            return f"Invalid line range {start_line}-{end_line}. end_line must not be smaller than start_line."
+        try:
+            text = repo.read(sha, path)
+            if "\0" in text:
+                return f"{path} is a binary file and cannot be shown."
+            lines = text.splitlines()
+        except PathNotFound:
+            if repo.ls(sha, path):
+                return f"{path} is a directory. Use list_files to see its files."
+            return f"No such file at this commit: {path}.{suggest(path)}"
+
+        if not lines:
+            return f"{path} is empty."
+        if start_line > len(lines):
+            return f"{path} has only {len(lines)} lines; start_line {start_line} is after the end."
+
+        end_line = min(end_line, start_line + MAX_LINES - 1, len(lines))
+        numbered = [
+            f"{number:>5}   {shorten(lines[number - 1], MAX_LINE_LENGTH)}" for number in range(start_line, end_line + 1)
+        ]
+        if end_line < len(lines):
+            numbered.append(
+                f"[lines {start_line}-{end_line} of {len(lines)}; "
+                f"call again with start_line={end_line + 1} for more]"
+            )
+        return "\n".join(numbered)
 
     @tool
     def search_code(pattern: str, directory: str = "app") -> str:
@@ -116,7 +133,7 @@ def make_tools(repo: GitRepo, sha: str) -> list:
         try:
             if not pattern.strip():
                 return "The search pattern is empty. Pass a word or a regular expression."
-            directory = clean_path(directory)
+            directory, note = under_app(clean_path(directory))
             hits = []
             for hit in repo.grep(sha, pattern, directory):
                 path, line_number, text = hit.split(":", 2)
@@ -126,12 +143,12 @@ def make_tools(repo: GitRepo, sha: str) -> list:
             if not hits:
                 if not repo.ls(sha, directory):
                     return f"No such file or directory at this commit: {directory}.{suggest(directory)}"
-                return f"No matches for {pattern!r} in {directory}."
+                return f"{note}No matches for {pattern!r} in {directory}."
             if len(hits) > MAX_HITS:
                 shown = hits[:MAX_HITS]
                 shown.append(f"[truncated, {MAX_HITS} of {len(hits)} hits; narrow the pattern or the directory]")
-                return "\n".join(shown)
-            return "\n".join(hits)
+                return note + "\n".join(shown)
+            return note + "\n".join(hits)
         except PathNotFound as e:
             return f"Refused: {e}"
         except GitError as e:
@@ -149,15 +166,15 @@ def make_tools(repo: GitRepo, sha: str) -> list:
         were more files.
         """
         try:
-            directory = clean_path(directory)
+            directory, note = under_app(clean_path(directory))
             files = [path for path in repo.ls(sha, directory) if is_readable(path)]
             if not files:
                 return f"No such directory at this commit: {directory}.{suggest(directory)}"
             if len(files) > MAX_FILES:
                 shown = files[:MAX_FILES]
                 shown.append(f"[truncated, {MAX_FILES} of {len(files)} files; list a subfolder]")
-                return "\n".join(shown)
-            return "\n".join(files)
+                return note + "\n".join(shown)
+            return note + "\n".join(files)
         except PathNotFound as e:
             return f"Refused: {e}"
         except GitError as e:

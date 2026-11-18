@@ -52,6 +52,12 @@ def test_answer_limit_must_be_positive(monkeypatch):
         get_settings()
 
 
+def test_context_window_is_read_from_environment(monkeypatch):
+    monkeypatch.setenv("OLLAMA_NUM_CTX", "32768")
+
+    assert get_settings().ollama_num_ctx == 32768
+
+
 def test_non_numeric_limit_raises_config_error(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "gemini")
     monkeypatch.setenv("MAX_TOOL_CALLS", "eight")

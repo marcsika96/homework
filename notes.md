@@ -46,6 +46,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-18 | Claude Code | Tested which Gemini models answer (one request each, only `gemini-3.5-flash-lite` did). Went through my Colab results with `qwen2.5-coder:14b` and `qwen3:14b`, gave me the tool-calling check, checked the dropped findings against the code and wrote the section "Colab: choosing an open model". |
 | 2026-11-18 | Claude Code | At my request: the output limit of local models as the setting `OLLAMA_NUM_PREDICT` (`config.py`, `llm.py`, `.env.example`, 3 tests), the notebook now uses `qwen3.5:9b` with a limit of 16,384. |
 | 2026-11-18 | Ollama on Colab (`qwen2.5-coder:14b`, `qwen3:14b`, `qwen3.5:9b`) | Bench on dev unit 20 and `try_graph.py` on units 17, 20 and 25. |
+| 2026-11-18 | Claude Code | 6.3 experiment 1 (commit `6c67ee6`): I wrote `LOOKUP_REQUEST` in `prompts.py` and added it as a third message in `load_context`, following Claude's instructions. Claude reviewed the change (list format, trailing spaces), checked the findings of units 17 and 25 against the code, and analysed the before/after runs: the look-ups happen now, unit 20 then failed in `write_findings` (likely the 16k context window) and unit 25 lost 4 of 8 calls to paths without `app/`. |
+| 2026-11-18 | Claude Code | At my request: the context window of local models as the setting `OLLAMA_NUM_CTX` (Colab: 32,768), and the tools read a path without `app/` under `app/` instead of returning an error (`tools.py`), with tests. |
 
 
 ## Decisions

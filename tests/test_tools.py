@@ -137,6 +137,34 @@ def test_misspelled_directory_gets_a_suggestion(tools):
     assert output == "No such directory at this commit: app/studios. Did you mean app/studio?"
 
 
+def test_path_without_app_is_read_under_app(tools):
+    output = tools["read_file"].invoke({"path": "studio/models.py", "start_line": 1, "end_line": 1})
+
+    assert output.splitlines() == [
+        "[studio/models.py is not in the project; used app/studio/models.py]",
+        "    1   from django.db import models",
+        "[lines 1-1 of 6; call again with start_line=2 for more]",
+    ]
+
+
+def test_search_and_list_use_a_directory_without_app_under_app(tools):
+    search = tools["search_code"].invoke({"pattern": "def class_list", "directory": "studio/views.py"})
+    listing = tools["list_files"].invoke({"directory": "studio"})
+
+    assert search.splitlines() == [
+        "[studio/views.py is not in the project; used app/studio/views.py]",
+        "app/studio/views.py:6: def class_list(request):",
+    ]
+    assert listing.splitlines()[0] == "[studio is not in the project; used app/studio]"
+    assert "app/studio/models.py" in listing
+
+
+def test_existing_path_and_path_missing_under_app_too_are_left_alone(tools):
+    # AGENTS.md is at the root, not under app/: no note. A missing path gets the old answer.
+    assert tools["read_file"].invoke({"path": "AGENTS.md"}).startswith("    1   ")
+    assert tools["read_file"].invoke({"path": "studio/nothing.py"}).startswith("No such file at this commit: studio/nothing.py.")
+
+
 def test_reading_a_directory_points_to_list_files(tools):
     output = tools["read_file"].invoke({"path": "app/studio"})
 
