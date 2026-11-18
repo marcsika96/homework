@@ -23,6 +23,12 @@ Things that are known and not done, each with the reason. When one is done, move
 
 ## From Exercise 6.1 (resumable runner)
 
+### An overloaded model is stored as a failed review
+
+- **What:** on 2026-11-18 the Gemini baseline run on the dev units got `503 UNAVAILABLE` ("model is currently experiencing high demand") for the first two units, after the 4 attempts of the retry rule. Both were stored as failed reviews, and by the rerun rules a stored failure is not repeated. Every further unit would have failed the same way, so the run was stopped by hand.
+- **Why not done:** the rule "failures are stored" is right for errors of the unit itself; an outage of the provider is not one. Found during the run, not decided yet.
+- **If it is done later:** treat a 503 that is left after the retries like the daily quota in `run_units`: stop the run without storing that unit. Until then, delete the stored failures of such a run by hand before starting it again.
+
 ### The checkpoint has not been run with a real model
 
 - **What:** the plan's checkpoint is: both systems on three dev units, stop the second run with Ctrl+C, start again, finished units are skipped. This is shown by the offline tests only (`tests/test_runner.py`, with the scripted model).

@@ -42,6 +42,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Claude Code | Tried `eval` and `eval --judge` on one dev unit with `llama3.2:1b` into a scratch folder, fixed the Git warnings in `code_version`, wrote `runbooks/6.3-dev-runs.md` and the status section of Parts 5 and 6, and started the overnight run of the 5.2 checkpoint at my request. |
 | 2026-11-16 | Ollama (`llama3.2:1b`, `phi4-mini`) | The trial of `eval` on one dev unit, and the overnight review of the I2 commit. |
 | 2026-11-18 | Claude Code | Went through the result of the overnight run with me (checked the two dropped findings against the commit, worked out from the call counts which call hit the output limit), wrote the section "5.2 checkpoint with a local model" and updated `BACKLOG.md`. |
+| 2026-11-18 | Claude Code | Wrote `notebooks/colab_dev_runs.ipynb` at my request (the dev runs of 6.3 with a larger Ollama model on a Colab GPU) and Option C in `runbooks/6.3-dev-runs.md`. Found why the first Gemini baseline run failed (503 from Google). |
 
 
 ## Decisions
