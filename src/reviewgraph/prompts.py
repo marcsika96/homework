@@ -96,6 +96,17 @@ Before you report, you can look at the rest of the project with three read-only 
 FINAL_INSTRUCTION = """The look-up phase is over, you cannot call tools any more. Now report the findings for the change, by the rules of the system prompt and with what you learned from the tool results. Return an empty list if the change has no defect.
 """
 
+LOOKUP_REQUEST = """\
+Step 1 of 2: look-up. Do not report findings yet and do not write JSON.
+Go through the change and decide what it depends on that you cannot see.
+For example:
+  - a called function,
+  - the model a query uses,
+  - the caller that passes a value,
+  - the check a decorator makes.
+Call the tools for those. If nothing needs checking, answer "No look-up needed."
+"""
+
 VERIFICATION_SYSTEM_PROMPT = """You are a senior Django developer who checks one finding of a code review. Another reviewer, an AI model, examined a changed Python file of a dance-studio web application and reported the finding. The developer only wants to see findings that are true, so your job is to confirm the finding or to reject it.
 
 ## What you get

@@ -14,7 +14,7 @@ from reviewgraph.gitrepo import GitError, GitRepo
 from reviewgraph.llm import RETRY_BACKOFF_FACTOR, RETRY_INITIAL_INTERVAL, RETRY_MAX_ATTEMPTS, StructuredOutputError, UsageCallback, call_structured, get_chat_model, is_transient_error, model_name
 from reviewgraph.schemas import Finding, ReviewResult, Verification, clean_findings, ReviewOutput
 from reviewgraph.tools import make_tools
-from reviewgraph.prompts import FINAL_INSTRUCTION, VERIFICATION_SYSTEM_PROMPT, build_agent_system_prompt, build_review_request, build_verification_request, load_rules, render_diff
+from reviewgraph.prompts import FINAL_INSTRUCTION, LOOKUP_REQUEST, VERIFICATION_SYSTEM_PROMPT, build_agent_system_prompt, build_review_request, build_verification_request, load_rules, render_diff
 
 
 
@@ -50,6 +50,7 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
         messages = [
             SystemMessage(build_agent_system_prompt(max_tool_calls)),
             HumanMessage(build_review_request(state["path"], rules, diff)),
+            HumanMessage(LOOKUP_REQUEST),
         ]
         return {
             "diff": diff,
