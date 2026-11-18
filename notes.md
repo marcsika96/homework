@@ -43,6 +43,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-16 | Ollama (`llama3.2:1b`, `phi4-mini`) | The trial of `eval` on one dev unit, and the overnight review of the I2 commit. |
 | 2026-11-18 | Claude Code | Went through the result of the overnight run with me (checked the two dropped findings against the commit, worked out from the call counts which call hit the output limit), wrote the section "5.2 checkpoint with a local model" and updated `BACKLOG.md`. |
 | 2026-11-18 | Claude Code | Wrote `notebooks/colab_dev_runs.ipynb` at my request (the dev runs of 6.3 with a larger Ollama model on a Colab GPU) and Option C in `runbooks/6.3-dev-runs.md`. Found why the first Gemini baseline run failed (503 from Google). |
+| 2026-11-18 | Claude Code | Tested which Gemini models answer (one request each, only `gemini-3.5-flash-lite` did). Went through my Colab results with `qwen2.5-coder:14b` and `qwen3:14b`, gave me the tool-calling check, checked the dropped findings against the code and wrote the section "Colab: choosing an open model". |
+| 2026-11-18 | Ollama on Colab (`qwen2.5-coder:14b`, `qwen3:14b`, `qwen3.5:9b`) | Bench on dev unit 20 and `try_graph.py` on units 17, 20 and 25. |
 
 
 ## Decisions
@@ -164,6 +166,23 @@ Observations on dev unit 20 (`I3:app/studio/database/classes.py`, the unit with 
 For the README (limitations): the key-free local path runs end to end and produces valid reports, but with models that fit into 16 GB of RAM without a GPU it is slow, does not use the look-up tools and misses defects that Gemini finds. It is a way to run the system without a key, not a replacement for the evaluated configuration. The other key-free path is the cached evaluation of Part 6.
 
 Not done: the agent with the default local model `qwen2.5-coder:7b` (in `BACKLOG.md`). A whole commit through `reviewgraph review` with a local model is done, see the next section.
+
+## Colab: choosing an open model (2026-11-18)
+
+`notebooks/colab_dev_runs.ipynb` on a free Colab T4 (15 GB), Ollama with `num_ctx=16384`. Both models below are about 11 GB with the full context and run `100% GPU`. Step 7 of the notebook (`scripts/bench_local.py <model> 20 8`) and `scripts/try_graph.py <unit> 8`:
+
+| Model | Baseline (unit 20) | Agent (unit 20) | Tool calls | Defect 52-54 | What `lookup` answered |
+|-------|--------------------|-----------------|------------|--------------|------------------------|
+| `qwen2.5-coder:14b` | 197 s (incl. loading the model), no findings | 67 s, 4 calls, 2 draft findings, both dropped | 0 | no | the tool call as JSON text in a code block (`{"name": "read_file", ...}`), which LangChain does not see as a tool call |
+| `qwen3:14b` | 162 s, no findings | 184 s, 2 calls, no findings | 0 | no | `[]` on units 20 and 17; on unit 25 a sentence that names a doubt (the room lock) without checking it |
+| `qwen3.5:9b` (6.1 GB) | 366 s, 2 calls, 6,084 output tokens, **1 finding: the defect** (line 53) | 339 s, 3 calls, 7,234 output tokens, **1 finding: the defect** (lines 53-54) | 0 | **yes, both**; the self-check confirmed it with a correct reason | an empty text (only thinking) |
+
+1. **The speed is fine:** about a minute per agent review with `qwen2.5-coder`, three with `qwen3` (it thinks: 1,400 to 1,900 output tokens per review, none near the 4,096 limit). The dev units with both systems fit into one Colab session.
+2. **`qwen2.5-coder:14b` wants to use the tools but cannot:** its tool call arrives as text. A model problem, not one of the graph.
+3. **`qwen3:14b` can call tools but does not in the look-up phase.** A direct test (a fake `read_file` tool bound with `bind_tools`, the request "use the read_file tool to read app/models.py") gave a proper tool call, so the plumbing works. In the look-up phase it answers the review instead: on unit 17, where Gemini made 7 tool calls, it answered `[]`. Likely cause: the look-up turn is the reviewer system prompt with `LOOKUP_INSTRUCTIONS` appended at the end, then the rules and the diff, with no request after them; the strongest instruction is the findings format ("If the change has no defect, return an empty list"), and `[]` is that answer. To be checked in the prompt tuning of 6.3.
+4. **The self-check was right every time:** five draft findings over the three units, all dropped, all false when checked against the code. The best example is unit 25: the draft said the room is not locked during the conflict check, but `conflict_or_invalid_data` takes the lock itself (`system/evaluations.py:146`) inside the `transaction.atomic()` block. One `search_code` call would have shown it. One detail: that rejection's reason did not start with "Not enough context:" as the verifier prompt asks, although it was that case.
+5. **`qwen3.5:9b` is the first open model that finds the known defect**, in the baseline and in the agent, and the self-check keeps it. The two 14B models did not, with or without tools, so the model matters more than the look-ups for this unit.
+6. **`qwen3.5:9b` probably hits the output limit while thinking.** The baseline makes one call when its answer is valid; here it made 2, with 6,084 output tokens, which fits a first answer cut at 4,096 tokens (invalid, so `call_structured` asked again) and a valid second one. Not seen directly, inferred from the counts. It costs time (about 6 minutes per review) and requests. `OLLAMA_NUM_PREDICT = 4096` was set against runaway answers on the laptop CPU; on the GPU a higher limit may be the better trade.
 
 ## 5.2 checkpoint with a local model (2026-11-16/17)
 
