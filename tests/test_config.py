@@ -39,6 +39,19 @@ def test_typo_in_provider_raises_config_error(monkeypatch):
     assert "\n" not in message
 
 
+def test_answer_limit_is_read_from_environment(monkeypatch):
+    monkeypatch.setenv("OLLAMA_NUM_PREDICT", "16384")
+
+    assert get_settings().ollama_num_predict == 16384
+
+
+def test_answer_limit_must_be_positive(monkeypatch):
+    monkeypatch.setenv("OLLAMA_NUM_PREDICT", "0")
+
+    with pytest.raises(ConfigError, match="OLLAMA_NUM_PREDICT"):
+        get_settings()
+
+
 def test_non_numeric_limit_raises_config_error(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "gemini")
     monkeypatch.setenv("MAX_TOOL_CALLS", "eight")

@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 
 class ConfigError(Exception):
@@ -16,6 +16,12 @@ class Settings(BaseModel):
     gemini_model: str = "gemini-3.5-flash"
     ollama_model: str = "qwen2.5-coder:7b"
     ollama_base_url: str = "http://localhost:11434"
+    # The most tokens a local model may write in one answer, thinking included.
+    # Ollama has no limit by default, and on 2026-11-16 phi4-mini wrote more than
+    # 7,600 tokens in one look-up answer (45 minutes on the CPU) and was still
+    # going. 4,096 stops such runaways on the laptop; a thinking model on a GPU
+    # (qwen3.5:9b on Colab) needs more, so the Colab notebook sets a higher value.
+    ollama_num_predict: int = Field(4096, gt=0)
     target_repo_path: str = "data/target"
     max_tool_calls: int = 8
     requests_per_minute: float = 10
