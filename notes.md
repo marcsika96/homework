@@ -53,6 +53,7 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-23 | Ollama on Colab (`qwen3.5:9b`) | `try_graph.py` on dev units 20 and 25 with the fixes of 2026-11-18; one direct `/api/chat` call per thinking level. |
 | 2026-11-23 | Claude Code | Went through the two runs with me: found from the Ollama log that unit 20 failed on runaway thinking, not on the context window, checked the finding of unit 25 against the code (false), gave me the thinking-level test, and wrote the section "Thinking level". |
 | 2026-11-23 | Claude Code | At my request: the thinking setting `OLLAMA_REASONING` (`config.py`, `llm.py`, `.env.example`), the retry without thinking for a cut-off answer and the stop reason in the error of `call_structured` (`llm.py`), 11 tests; the notebook with `REASONING`, `NUM_PREDICT = 8192` and section 7b. |
+| 2026-11-23 | Claude Code | Found why 1 to 3 baseline tests failed on Colab but not on the laptop: the test fixture `waits` replaced `time.sleep` for the whole process, and on Linux `subprocess` sleeps while git runs. The baseline now has its own `sleep` name, and only that is replaced. |
 
 
 ## Decisions

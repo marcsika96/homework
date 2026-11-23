@@ -125,7 +125,9 @@ def overloaded() -> GoogleAPIError:
 def waits(monkeypatch) -> list[float]:
     """The seconds the baseline wanted to sleep, without sleeping."""
     slept = []
-    monkeypatch.setattr("reviewgraph.baseline.time.sleep", slept.append)
+    # Only the baseline's own name: patching time.sleep would also catch the
+    # sleeps of subprocess while git runs, which happen on Linux (Colab).
+    monkeypatch.setattr("reviewgraph.baseline.sleep", slept.append)
     return slept
 
 

@@ -1,6 +1,9 @@
 """System B of the evaluation: one prompt with the rules and the diff, no tools, no self-check."""
 
 import time
+# A name of this module, so a test can replace the waits between attempts without
+# replacing time.sleep for everything else (on Linux, subprocess sleeps while git runs).
+from time import sleep
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -77,4 +80,4 @@ def _review(result: ReviewResult, repo: GitRepo, sha: str, path: str, model: Bas
             if attempt == RETRY_MAX_ATTEMPTS or not is_transient_error(e):
                 result.error = f"LLM call failed: {type(e).__name__}: {e}"
                 return
-            time.sleep(retry_wait(attempt))
+            sleep(retry_wait(attempt))
