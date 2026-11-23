@@ -3,7 +3,7 @@ import time
 from typing import Annotated, Literal, TypedDict
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage, AIMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -11,7 +11,7 @@ from langgraph.types import RetryPolicy, Send
 
 from reviewgraph.config import get_settings
 from reviewgraph.gitrepo import GitError, GitRepo
-from reviewgraph.llm import RETRY_BACKOFF_FACTOR, RETRY_INITIAL_INTERVAL, RETRY_MAX_ATTEMPTS, StructuredOutputError, UsageCallback, call_structured, get_chat_model, is_transient_error, model_name, verifier_model
+from reviewgraph.llm import RETRY_BACKOFF_FACTOR, RETRY_INITIAL_INTERVAL, RETRY_MAX_ATTEMPTS, StructuredOutputError, UsageCallback, call_structured, get_chat_model, is_transient_error, model_name, verifier_model, is_unreadable_reply
 from reviewgraph.schemas import Finding, ReviewResult, Verification, clean_findings, ReviewOutput
 from reviewgraph.tools import make_tools
 from reviewgraph.prompts import FINAL_INSTRUCTION, LOOKUP_REQUEST, VERIFICATION_SYSTEM_PROMPT, build_agent_system_prompt, build_review_request, build_verification_request, load_rules, render_diff, render_lookups
@@ -62,11 +62,18 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
 
     def lookup(state: ReviewState) -> dict:
         """Step 2a. The model either asks for tools or says it has enough context."""
-        # TODO: lookup_model.invoke(state["messages"]) -> {"messages": [ai_message]}
-        ai_message=lookup_model.invoke(state["messages"])
-        return {
-            "messages": [ai_message],
-        }
+        try:
+            ai_message = lookup_model.invoke(state["messages"])
+        except Exception as e:
+            if not is_unreadable_reply(e):
+                raise
+            entry = {"tool_call_id": None, "tool_name": None, "tool_args": {},
+                      "status": "unreadable_reply", "error": str(e)}
+            return {
+                "messages": [AIMessage(content="The look-up ended: my last answer could not be read.")],
+                "trace": [entry],
+            }
+        return {"messages": [ai_message]}
 
 
     def run_tools(state: ReviewState) -> dict:

@@ -4,6 +4,7 @@ Layer 1: the routing functions as plain functions, called with small state dicts
 Layer 2: the whole graph with a scripted model on the fixture repository.
 """
 
+import ollama
 from conftest import ScriptedChatModel, tool_call
 from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.types import Send
@@ -196,3 +197,25 @@ def test_self_check_gets_a_fresh_context_with_the_code_around_the_finding(tiny_r
         # ... but not the reviewer's own words or the look-up instructions.
         assert "I have what I need." not in request
         assert "Step 1 of 2: look-up." not in request
+
+
+def test_an_unreadable_look_up_answer_ends_the_look_up_and_the_review_goes_on(tiny_repo):
+    # qwen3.5:9b on dev unit 25 (2026-11-23): Ollama could not parse the model's tool call.
+    broken = ollama.ResponseError("XML syntax error on line 3: element <function> closed by </parameter>")
+    model = ScriptedChatModel(replies=[
+        asks_for_a_tool(),                                   # round 1: one tool call, executed
+        broken,                                              # round 2: the answer cannot be read
+        ReviewOutput(findings=[make_finding(7)]),
+        Verification(supported=True, reason="Scripted verdict."),
+    ])
+
+    graph = build_graph(model, tiny_repo.repo, tiny_repo.second_sha, max_tool_calls=8)
+    state = graph.invoke({"commit": tiny_repo.second_sha, "path": VIEWS})
+
+    assert len(model.received) == 4                         # not retried, no third look-up round
+    assert [entry["status"] for entry in state["trace"]] == ["executed", "unreadable_reply"]
+    assert "XML syntax error" in state["trace"][-1]["error"]
+    assert state["tool_calls_used"] == 1
+    # The findings are written with what was looked up before the broken answer.
+    assert "PositiveIntegerField" in "\n".join(str(m.content) for m in model.received[2])
+    assert state["findings"] == [make_finding(7)]
