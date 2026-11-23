@@ -101,6 +101,26 @@ def hit_daily_quota(result: ReviewResult) -> bool:
     return result.error is not None and result.error.startswith("LLM call failed") and DAILY_QUOTA_MARKER in result.error
 
 
+# What the Gemini API answers when the model is overloaded: 503 UNAVAILABLE ("high
+# demand") or 504 DEADLINE_EXCEEDED. Both were seen on 2026-11-18.
+OVERLOAD_MARKERS = ("UNAVAILABLE", "DEADLINE_EXCEEDED")
+
+
+def hit_overload(result: ReviewResult) -> bool:
+    """True if the review failed because the model was overloaded, even after the retries.
+
+    Such a unit is not stored and the run stops: the review did not fail because
+    of the unit, and every further unit would fail the same way. On the free
+    tier the failed attempts count against the daily quota too (16 requests for
+    four units on 2026-11-18), so going on would use up the day for nothing.
+    """
+    return (
+        result.error is not None
+        and result.error.startswith("LLM call failed")
+        and any(marker in result.error for marker in OVERLOAD_MARKERS)
+    )
+
+
 def run_units(
     units: list[Unit],
     system: str,
@@ -110,10 +130,11 @@ def run_units(
 ) -> dict:
     """Review every unit that is not stored yet. Returns how many were reviewed and skipped.
 
-    The run stops early when the daily quota is used up. That unit is not
-    stored, because it was not reviewed; the next run starts with it.
+    The run stops early when the daily quota is used up or the model is
+    overloaded (hit_overload). That unit is not stored, because it was not
+    reviewed; the next run starts with it.
     """
-    summary = {"reviewed": 0, "skipped": 0, "quota_used_up": False}
+    summary = {"reviewed": 0, "skipped": 0, "quota_used_up": False, "overloaded": False}
     max_tool_calls = get_settings().max_tool_calls if system == "agent" else None
 
     for number, unit in enumerate(units, start=1):
@@ -132,6 +153,10 @@ def run_units(
         if hit_daily_quota(result):
             print(f"{label}: the daily quota is used up, stopping here")
             summary["quota_used_up"] = True
+            break
+        if hit_overload(result):
+            print(f"{label}: the model is overloaded, stopping here")
+            summary["overloaded"] = True
             break
 
         record = RunRecord(

@@ -40,7 +40,7 @@ def test_every_unit_gets_a_file_with_the_result_and_where_it_came_from(tiny_repo
 
     summary = run_units(units, "baseline", tiny_repo.repo, model, runs_dir=tmp_path)
 
-    assert summary == {"reviewed": 2, "skipped": 0, "quota_used_up": False}
+    assert summary == {"reviewed": 2, "skipped": 0, "quota_used_up": False, "overloaded": False}
     record = load_record(record_path(tmp_path, "baseline", units[1].id))
     assert record.result.unit_id == f"I1:{VIEWS}"
     assert record.result.findings[0].line_start == 7
@@ -67,7 +67,7 @@ def test_a_second_run_skips_the_stored_units(tiny_repo, tmp_path):
 
     summary = run_units(units, "baseline", tiny_repo.repo, second_model, runs_dir=tmp_path)
 
-    assert summary == {"reviewed": 0, "skipped": 2, "quota_used_up": False}
+    assert summary == {"reviewed": 0, "skipped": 2, "quota_used_up": False, "overloaded": False}
     assert second_model.received == []              # the model was not called
 
 
@@ -82,7 +82,7 @@ def test_an_interrupted_run_continues_where_it_stopped(tiny_repo, tmp_path):
 
     summary = run_units(units, "baseline", tiny_repo.repo, ScriptedChatModel(replies=[one_finding()]), runs_dir=tmp_path)
 
-    assert summary == {"reviewed": 1, "skipped": 1, "quota_used_up": False}
+    assert summary == {"reviewed": 1, "skipped": 1, "quota_used_up": False, "overloaded": False}
     assert len(load_records(units, "baseline", runs_dir=tmp_path)) == 2
 
 
@@ -104,8 +104,37 @@ def test_the_daily_quota_stops_the_run_and_stores_nothing_for_that_unit(tiny_rep
 
     summary = run_units(units, "baseline", tiny_repo.repo, model, runs_dir=tmp_path)
 
-    assert summary == {"reviewed": 1, "skipped": 0, "quota_used_up": True}
+    assert summary == {"reviewed": 1, "skipped": 0, "quota_used_up": True, "overloaded": False}
     assert not record_path(tmp_path, "baseline", units[1].id).exists()
+
+
+@pytest.mark.parametrize("error", [
+    "503 UNAVAILABLE. This model is currently experiencing high demand.",
+    "504 DEADLINE_EXCEEDED. Deadline expired before operation could complete.",
+])
+def test_an_overloaded_model_stops_the_run_and_stores_nothing_for_that_unit(tiny_repo, tmp_path, error):
+    # The errors of 2026-11-18. A ValueError is not retried, so the scripted
+    # model needs one reply per unit; in a real run this is what is left after the retries.
+    units = make_units(tiny_repo)
+    model = ScriptedChatModel(replies=[ReviewOutput(findings=[]), ValueError(error)])
+
+    summary = run_units(units, "baseline", tiny_repo.repo, model, runs_dir=tmp_path)
+
+    assert summary == {"reviewed": 1, "skipped": 0, "quota_used_up": False, "overloaded": True}
+    assert not record_path(tmp_path, "baseline", units[1].id).exists()
+
+
+def test_the_eval_command_says_when_the_model_is_overloaded(tiny_repo, tmp_path, monkeypatch, capsys):
+    units_file = write_units_file(tmp_path, make_units(tiny_repo)[:1])
+    model = ScriptedChatModel(replies=[ValueError("503 UNAVAILABLE. high demand")])
+    monkeypatch.setattr(cli, "get_chat_model", lambda: model)
+    monkeypatch.setattr(cli, "check_ollama", lambda needs_tools: None)
+    monkeypatch.setattr(cli, "get_settings", lambda: type("Settings", (), {"target_repo_path": str(tiny_repo.path)})())
+
+    exit_code = cli.main(["eval", "--units", str(units_file), "--system", "baseline", "--runs", str(tmp_path / "runs")])
+
+    assert exit_code == cli.EXIT_REVIEW_FAILED
+    assert "Stopped: the model is overloaded right now." in capsys.readouterr().err
 
 
 def test_a_record_of_another_prompt_version_is_run_again(tiny_repo, tmp_path, monkeypatch):

@@ -139,6 +139,7 @@ def run_eval(args: argparse.Namespace) -> int:
     #   --judge    the judge rates the stored findings
     #   (default)  the systems review the units that are not stored yet
     quota_used_up = False
+    overloaded = False
     if not args.cached:
         repo = GitRepo(get_settings().target_repo_path)
         model = get_chat_model()
@@ -152,6 +153,9 @@ def run_eval(args: argparse.Namespace) -> int:
                 summary = run_units(units, system, repo, model, runs_dir=args.runs)
                 if summary["quota_used_up"]:
                     quota_used_up = True
+                    break
+                if summary["overloaded"]:
+                    overloaded = True
                     break
 
     # Step 3: a summary of what is stored for these units.
@@ -175,6 +179,9 @@ def run_eval(args: argparse.Namespace) -> int:
 
     if quota_used_up:
         print("Stopped: the daily quota is used up. Run the same command again tomorrow to continue.", file=sys.stderr)
+        return EXIT_REVIEW_FAILED
+    if overloaded:
+        print("Stopped: the model is overloaded right now. Run the same command again later to continue.", file=sys.stderr)
         return EXIT_REVIEW_FAILED
     return EXIT_OK
 
