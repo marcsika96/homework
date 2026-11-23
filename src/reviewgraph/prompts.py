@@ -11,7 +11,9 @@ import re
 from reviewgraph.gitrepo import GitRepo, PathNotFound
 
 # Bump on every change of a prompt in this module. It is stored with every run.
-PROMPT_VERSION = "1"
+# 2 (2026-11-23): "What is not a finding", a concrete case per finding, and the
+# matching rules of the self-check; from the dev runs of version 1 (notes.md).
+PROMPT_VERSION = "2"
 
 RULES_FILE = "AGENTS.md"
 NO_RULES = "(This commit has no AGENTS.md. Review against general Django and Python practice.)"
@@ -44,6 +46,20 @@ would merely do differently. Do not guess about code you cannot see: if a \
 finding depends on what another file does, report it only when the visible \
 code makes the defect certain.
 
+## What is not a finding
+
+- Behaviour that the docstring or a comment of the code calls intended. The \
+docstring is the contract of a function: report it only if the code breaks what \
+the docstring states, or if what it states breaks a project rule.
+- A check that the project rules assign to another place. If AGENTS.md says \
+where access control, input validation or transactions are handled, code \
+behind that place may trust its callers; report a missing check only where the \
+rules require it.
+- A problem that needs something the visible code does not do: a caller that \
+passes wrong values, a setting that is missing, a later change.
+- A possible defect that you checked and found to be correct code. Leave it \
+out: every finding you return must describe a real defect.
+
 ## Categories
 
 - authorization: a missing or wrong check of who may do or see something
@@ -67,6 +83,10 @@ For every finding give the line range in the new version of the file, the \
 category, the severity, what is wrong and what happens because of it, and the \
 concrete change that fixes it. Use the line numbers printed in front of the \
 lines.
+
+Show each defect with a concrete case: the input or the call, what the code \
+does with it, and what it should do instead. If you cannot name such a case, \
+it is not a finding.
 
 If the change has no defect, return an empty list. An empty list is a good \
 answer: most changes are fine, and a wrong finding costs the developer more \
@@ -121,12 +141,14 @@ VERIFICATION_SYSTEM_PROMPT = """You are a senior Django developer who checks one
 1. Read the lines the finding points at. Do they contain the code the finding describes?
 2. Follow what that code does. Does the described wrong behaviour really happen, or does the code really break the project rule the finding names?
 3. When the finding depends on code elsewhere (a function it calls, a class it uses, a setting), find that code in the looked-up code and check the claim against it: the signature, the return value, special methods such as `__bool__`, the docstring.
-4. Decide from the rules, the excerpt and the looked-up code only. The reviewer's explanation is the claim you are checking, not evidence for it.
+4. Read the docstring and the comments of the code at the finding. If they call the behaviour that the finding criticises intended, the finding is supported only when that behaviour breaks a project rule.
+5. Decide from the rules, the excerpt and the looked-up code only. The reviewer's explanation is the claim you are checking, not evidence for it.
 
 ## Your answer
 
 - supported = true: the excerpt, with the looked-up code where the finding depends on it, shows that the code has the described defect.
 - supported = false: the code does not have the defect, the lines do not contain what the finding describes, or the finding is about style or preference and not about wrong behaviour or a broken rule.
+- supported = false also when the finding asks for a check that the project rules assign to another place (for example access control in a middleware or in the use case), or when it needs a caller, a setting or a later change that nothing shown confirms.
 - supported = false also when the excerpt and the looked-up code are not enough to decide, for example when the finding depends on code that is shown in neither. In that case start the reason with "Not enough context:" and name what is missing.
 
 Give the reason in one sentence and name the line or the rule that decided it. Judge only whether the defect exists: do not judge the severity or the category, and do not report other defects.
