@@ -73,6 +73,8 @@ def messy_tools(tmp_path) -> dict:
     write(path / "app/settings.py", "API_TOKEN = env('API_TOKEN')\n")
     write(path / "app/long.py", "".join(f"value_{number} = {number}\n" for number in range(1, 251)))
     write(path / "app/static/vendor.min.js", "var a=1;" * 500 + "\n")
+    write(path / "app/models/__init__.py", "from .classes import DanceClass\n")
+    write(path / "app/models/classes.py", "class DanceClass:\n    pass\n")
     git(path, "add", "-A", "--force")
     git(path, "commit", "--quiet", "-m", "everything")
     sha = git(path, "rev-parse", "HEAD")
@@ -165,10 +167,30 @@ def test_existing_path_and_path_missing_under_app_too_are_left_alone(tools):
     assert tools["read_file"].invoke({"path": "studio/nothing.py"}).startswith("No such file at this commit: studio/nothing.py.")
 
 
-def test_reading_a_directory_points_to_list_files(tools):
+def test_reading_a_directory_lists_its_files(tools):
     output = tools["read_file"].invoke({"path": "app/studio"})
 
-    assert output == "app/studio is a directory. Use list_files to see its files."
+    assert output.splitlines() == [
+        "app/studio is a directory, not a file. Its files:",
+        "app/studio/logo.png",
+        "app/studio/models.py",
+        "app/studio/views.py",
+    ]
+
+
+def test_reading_a_module_that_is_a_package_lists_the_package(messy_tools):
+    # qwen3.5:9b on 2026-11-23: read_file("app/studio/models.py") where the models are a package.
+    output = messy_tools["read_file"].invoke({"path": "app/models.py"})
+
+    assert output.splitlines() == [
+        "No such file at this commit: app/models.py. app/models is a package; its files:",
+        "app/models/__init__.py",
+        "app/models/classes.py",
+    ]
+
+
+def test_a_folder_with_only_secret_files_is_not_listed(messy_tools):
+    assert messy_tools["list_files"].invoke({"directory": "deploy"}).startswith("No such directory at this commit: deploy.")
 
 
 def test_binary_file_is_not_shown(tools):

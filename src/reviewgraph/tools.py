@@ -54,6 +54,13 @@ def make_tools(repo: GitRepo, sha: str) -> list:
             return path, ""
         return "app/" + path, f"[{path} is not in the project; used app/{path}]\n"
 
+    def file_list(directory: str) -> str:
+        """The readable files below an existing directory, one per line, at most MAX_FILES."""
+        files = [path for path in repo.ls(sha, directory) if is_readable(path)]
+        if len(files) > MAX_FILES:
+            files = files[:MAX_FILES] + [f"[truncated, {MAX_FILES} of {len(files)} files; list a subfolder]"]
+        return "\n".join(files)
+
     def suggest(path: str) -> str:
         """A "Did you mean ...?" sentence for a path that does not exist, or ""."""
         files = [file for file in repo.ls(sha) if is_readable(file)]
@@ -98,8 +105,14 @@ def make_tools(repo: GitRepo, sha: str) -> list:
                 return f"{path} is a binary file and cannot be shown."
             lines = text.splitlines()
         except PathNotFound:
+            # Answer with the files right away: on 2026-11-23 qwen3.5:9b asked for app/studio/models.py
+            # in 6 of 26 dev units, where the models are the package app/studio/models/, and then spent
+            # one to three more calls on "Did you mean ...?", list_files and __init__.py.
             if repo.ls(sha, path):
-                return f"{path} is a directory. Use list_files to see its files."
+                return f"{path} is a directory, not a file. Its files:\n{file_list(path)}"
+            package = path.removesuffix(".py")
+            if package != path and repo.ls(sha, package):
+                return f"No such file at this commit: {path}. {package} is a package; its files:\n{file_list(package)}"
             return f"No such file at this commit: {path}.{suggest(path)}"
 
         if not lines:
@@ -167,14 +180,10 @@ def make_tools(repo: GitRepo, sha: str) -> list:
         """
         try:
             directory, note = under_app(clean_path(directory))
-            files = [path for path in repo.ls(sha, directory) if is_readable(path)]
-            if not files:
+            listing = file_list(directory)
+            if not listing:
                 return f"No such directory at this commit: {directory}.{suggest(directory)}"
-            if len(files) > MAX_FILES:
-                shown = files[:MAX_FILES]
-                shown.append(f"[truncated, {MAX_FILES} of {len(files)} files; list a subfolder]")
-                return note + "\n".join(shown)
-            return note + "\n".join(files)
+            return note + listing
         except PathNotFound as e:
             return f"Refused: {e}"
         except GitError as e:
