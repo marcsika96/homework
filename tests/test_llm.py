@@ -20,6 +20,7 @@ from reviewgraph.llm import (
     get_chat_model,
     is_transient_error,
     model_name,
+    verifier_model,
     without_thinking,
 )
 from reviewgraph.schemas import ReviewOutput, RunStats
@@ -219,6 +220,48 @@ def test_thinking_mode_is_part_of_the_model_name():
     assert model_name(Settings(llm_provider="ollama", ollama_model="qwen3.5:9b")) == "qwen3.5:9b"
     low = Settings(llm_provider="ollama", ollama_model="qwen3.5:9b", ollama_reasoning="low")
     assert model_name(low) == "qwen3.5:9b, reasoning low"
+
+
+def test_verifier_thinking_is_in_the_name_of_the_agent_only():
+    settings = Settings(llm_provider="ollama", ollama_model="qwen3.5:9b", ollama_reasoning="false",
+                        ollama_verify_reasoning="low")
+
+    assert model_name(settings, verifier=True) == "qwen3.5:9b, reasoning false, verifier low"
+    assert model_name(settings) == "qwen3.5:9b, reasoning false"      # baseline and judge
+
+
+def test_verifier_model_is_a_copy_with_its_own_thinking():
+    settings = Settings(llm_provider="ollama", ollama_model="qwen3.5:9b", ollama_reasoning="false",
+                        ollama_verify_reasoning="low")
+    model = get_chat_model(settings)
+
+    verifier = verifier_model(model, settings)
+
+    assert verifier is not model
+    assert verifier.reasoning == "low"
+    assert verifier.model == "qwen3.5:9b" and verifier.num_predict == model.num_predict
+    assert model.reasoning is False             # the review keeps its own setting
+
+
+def test_verifier_model_true_and_false_become_booleans():
+    settings = Settings(llm_provider="ollama", ollama_verify_reasoning="true")
+
+    assert verifier_model(get_chat_model(settings), settings).reasoning is True
+
+
+def test_verifier_model_without_its_setting_is_the_model_itself():
+    settings = Settings(llm_provider="ollama", ollama_reasoning="low")
+    model = get_chat_model(settings)
+
+    assert verifier_model(model, settings) is model
+
+
+def test_verifier_model_leaves_other_models_alone():
+    # Gemini, and the scripted model of the tests, have no Ollama thinking setting.
+    settings = Settings(llm_provider="ollama", ollama_verify_reasoning="low")
+    model = FakeModel([])
+
+    assert verifier_model(model, settings) is model
 
 
 # The 429 of 2026-11-16, shortened. The quota id is what marks the daily limit.

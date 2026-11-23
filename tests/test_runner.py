@@ -148,6 +148,22 @@ def test_a_record_of_another_prompt_version_is_run_again(tiny_repo, tmp_path, mo
     assert load_record(record_path(tmp_path, "baseline", units[0].id)).prompt_version == "next"
 
 
+def test_a_new_verifier_mode_runs_the_agent_again_but_not_the_baseline(tiny_repo, tmp_path, monkeypatch):
+    units = make_units(tiny_repo)[:1]
+    run_units(units, "baseline", tiny_repo.repo, ScriptedChatModel(replies=[ReviewOutput(findings=[])]), runs_dir=tmp_path)
+    agent_replies = [AIMessage(content="Nothing to look up."), ReviewOutput(findings=[])]
+    run_units(units, "agent", tiny_repo.repo, ScriptedChatModel(replies=list(agent_replies)), runs_dir=tmp_path)
+    # Now OLLAMA_VERIFY_REASONING is set: only the agent's name changes.
+    stored = load_record(record_path(tmp_path, "baseline", units[0].id)).result.model
+    monkeypatch.setattr(runner, "model_name", lambda verifier=False: stored + (", verifier low" if verifier else ""))
+
+    baseline = run_units(units, "baseline", tiny_repo.repo, ScriptedChatModel(replies=[]), runs_dir=tmp_path)
+    agent = run_units(units, "agent", tiny_repo.repo, ScriptedChatModel(replies=list(agent_replies)), runs_dir=tmp_path)
+
+    assert baseline["skipped"] == 1
+    assert agent["reviewed"] == 1
+
+
 # --- The eval command ---------------------------------------------------------
 
 

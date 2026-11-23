@@ -147,16 +147,39 @@ def check_ollama(needs_tools: bool = False, settings: Settings | None = None) ->
         ) from None
 
 
-def model_name(settings: Settings | None = None) -> str:
-    """Name of the model that get_chat_model() returns, for reports and cached runs."""
+def verifier_model(model: BaseChatModel, settings: Settings | None = None) -> BaseChatModel:
+    """The model for the self-check (verify_finding): a copy with OLLAMA_VERIFY_REASONING.
+
+    Unset, or a model that is not an Ollama model (Gemini, the scripted test
+    model): the model itself. A thinking verifier is protected like every
+    other structured call: an answer cut off at OLLAMA_NUM_PREDICT is asked
+    again without thinking (call_structured).
+    """
+    settings = settings or get_settings()
+    if settings.ollama_verify_reasoning is None or not isinstance(model, ChatOllama):
+        return model
+    value = REASONING_VALUES.get(settings.ollama_verify_reasoning, settings.ollama_verify_reasoning)
+    return model.model_copy(update={"reasoning": value})
+
+
+def model_name(settings: Settings | None = None, verifier: bool = False) -> str:
+    """Name of the model that get_chat_model() returns, for reports and cached runs.
+
+    `verifier=True` for the agent: its name also says the self-check's thinking
+    when OLLAMA_VERIFY_REASONING is set. The baseline and the judge have no
+    self-check, so a change of that setting does not make their runs stale.
+    """
     settings = settings or get_settings()
     if settings.llm_provider == "gemini":
         return settings.gemini_model
     # The thinking mode is part of the name, so that stored runs of one mode are
     # not taken for runs of another (is_done in evaluation/runner.py).
-    if settings.ollama_reasoning is None:
-        return settings.ollama_model
-    return f"{settings.ollama_model}, reasoning {settings.ollama_reasoning}"
+    name = settings.ollama_model
+    if settings.ollama_reasoning is not None:
+        name += f", reasoning {settings.ollama_reasoning}"
+    if verifier and settings.ollama_verify_reasoning is not None:
+        name += f", verifier {settings.ollama_verify_reasoning}"
+    return name
 
 
 def call_structured(

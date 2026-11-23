@@ -93,7 +93,8 @@ def is_done(record: RunRecord | None) -> bool:
     """
     if record is None:
         return False
-    return record.result.model == model_name() and record.prompt_version == PROMPT_VERSION
+    current_model = model_name(verifier=record.result.system == "agent")
+    return record.result.model == current_model and record.prompt_version == PROMPT_VERSION
 
 
 def hit_daily_quota(result: ReviewResult) -> bool:

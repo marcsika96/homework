@@ -33,6 +33,11 @@ class Settings(BaseModel):
     # "low" on a one-line question; on dev unit 20 its default thinking ran into
     # OLLAMA_NUM_PREDICT (16,384) three times in a row and gave no answer.
     ollama_reasoning: Literal["true", "false", "low", "medium", "high"] | None = None
+    # Thinking of the self-check (verify_finding) only, the same values. Unset:
+    # as OLLAMA_REASONING. On dev unit 20 (2026-11-23) the review found the known
+    # defect without thinking, and the self-check without thinking dropped it
+    # with a wrong reason; with thinking it had confirmed it (2026-11-18).
+    ollama_verify_reasoning: Literal["true", "false", "low", "medium", "high"] | None = None
     target_repo_path: str = "data/target"
     max_tool_calls: int = 8
     requests_per_minute: float = 10

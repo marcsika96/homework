@@ -54,6 +54,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-23 | Claude Code | Went through the two runs with me: found from the Ollama log that unit 20 failed on runaway thinking, not on the context window, checked the finding of unit 25 against the code (false), gave me the thinking-level test, and wrote the section "Thinking level". |
 | 2026-11-23 | Claude Code | At my request: the thinking setting `OLLAMA_REASONING` (`config.py`, `llm.py`, `.env.example`), the retry without thinking for a cut-off answer and the stop reason in the error of `call_structured` (`llm.py`), 11 tests; the notebook with `REASONING`, `NUM_PREDICT = 8192` and section 7b. |
 | 2026-11-23 | Claude Code | Found why 1 to 3 baseline tests failed on Colab but not on the laptop: the test fixture `waits` replaced `time.sleep` for the whole process, and on Linux `subprocess` sleeps while git runs. The baseline now has its own `sleep` name, and only that is replaced. |
+| 2026-11-23 | Ollama on Colab (`qwen3.5:9b`) | `try_graph.py` and `try_baseline.py` on dev units 20 and 25 with thinking "low", "medium" and off. |
+| 2026-11-23 | Claude Code | Analysed these runs with me (the Ollama log, the stats of the baseline run, the false findings checked against the code) and wrote them into "Thinking level". At my request, for the thinking self-check: the setting `OLLAMA_VERIFY_REASONING`, `verifier_model(model)` in `llm.py`, the verifier mode in the agent's model name (`model_name(verifier=True)`, also in `is_done`), the notebook setting `VERIFY_REASONING`, 9 tests. The two lines in `graph.py` that use it are mine. |
 
 
 ## Decisions
@@ -218,7 +220,29 @@ Colab T4, `qwen3.5:9b`, `NUM_CTX = 32768`, `NUM_PREDICT = 16384`, thinking at th
 
    One sample each on a toy question, so only a sign. "low" makes the thinking shorter but does not cap it.
 
-Changes (Claude Code, at my request): the setting `OLLAMA_REASONING`; `call_structured` asks a cut-off answer once more without thinking; its error says the stop reason and the token counts; the notebook uses `REASONING = "low"` and `NUM_PREDICT = 8192` (see Decisions). **Next on Colab: section 7b of the notebook (units 20 and 25) with these settings**: does unit 20 now give findings, ideally lines 52-54, and how long does it take?
+Changes (Claude Code, at my request): the setting `OLLAMA_REASONING`; `call_structured` asks a cut-off answer once more without thinking; its error says the stop reason and the token counts; the notebook uses `REASONING = "low"` and `NUM_PREDICT = 8192` (see Decisions). **Second run, same day** (code `b759d8a`, `REASONING = "low"`, `NUM_PREDICT = 8192`, times from the Ollama log):
+
+| Unit | Tool calls | Result | `write_findings` | Whole run |
+|------|------------|--------|------------------|-----------|
+| 20 | 8; one wasted: the hint "Did you mean app/studio/models?" made it call `read_file` on the directory | 0 findings: **the defect is missed** | 1m30s, about 2,300 tokens, not cut off | about 3 min |
+| 25 | 8 | 1 draft finding, false, dropped | 4m40s, about 7,000 tokens, not cut off | about 5 min |
+
+5. **With "low" no call ran into the limit**, so the fallback was not needed. Unit 20 thought for 90 seconds, finished and found nothing. The defect is `output_field=DurationField()` at lines 52-54 of `database/classes.py`: `starts_at` plus minutes is a datetime, so it must be `DateTimeField()`, and line 58 compares it with `timezone.now()`. The model had read the correct `ends_at` property in `models/classes.py` (lines 130-135) on the way. On 2026-11-18 it found the defect with default thinking, in a smaller prompt without look-ups.
+6. **"low" does not bound the length**: unit 25 thought about 7,000 tokens with "low", against about 800 with the default in the morning run. The budget and the fallback are what limit it.
+7. **Unit 25 made a different false finding than in the morning**: "`if problems:` is always true, `conflict_or_invalid_data` always returns a ClassProblems". False: `ClassProblems` defines `__bool__` (`backend/classes.py:58`), and the docstring the model had read says "falsy when the class can be added". Again dropped with "Not enough context". Both false findings of unit 25 come from not looking up a definition; runs at temperature 0 still differ.
+
+**Third and fourth run on unit 20** (`OLLAMA_REASONING` set in front of the command):
+
+8. **Agent, "medium": the defect is missed again.** 8 tool calls, mostly whole model files (`models/classes.py`, `accounts.py`, `passes.py`, `settings.py`) instead of the changed code. One draft finding, a race in `get_or_create` at lines 178-180; false, because Django's `get_or_create` catches the `IntegrityError` of a concurrent create and fetches the row. Dropped, this time with a correct reason.
+9. **Baseline, "low": the defect is found, by the answer without thinking.** `llm_calls` 2, `output_tokens` 8,443 = 8,192 + 251, 321 s: the first answer thought until the budget and was cut off, and the fallback of `call_structured` answered without thinking in 251 tokens, with the finding at lines 52-64 (`DurationField` compared with `timezone.now()`; it names the wrong function, `retrieve_selected_class`). The first real use of the fallback, and it worked.
+
+Unit 20 so far: the only answers that found the defect came after a cut-off (2026-11-18, default thinking cut at 4,096, then retried) or without thinking (today). With thinking and look-ups (about 12k tokens of prompt) the agent ran away (default) or missed the defect ("low", "medium"). Thinking runs away even at "low" on a 6k prompt. One unit, so only a direction. **Fifth run on unit 20, thinking off** (`OLLAMA_REASONING=false`):
+
+10. **Baseline: the defect is found** in 9.7 s, one call, 251 output tokens: the same answer as the fallback in run 9.
+11. **Agent: `write_findings` finds the defect** (lines 52-53, "adding a timedelta to a datetime produces a datetime, not a duration"), **and `verify_finding` drops it with a wrong reason** ("correctly uses `DurationField()` because the expression calculates a duration"). On 2026-11-18 the self-check with default thinking confirmed the same defect with a correct reason. The look-up still loses calls: the `models.py` hint, and lines 130-135 and 130-145 of the same file read one after the other.
+12. **Agent on unit 25, thinking off:** the same false finding as in the first run of the day (`problems` passed where `checked_details` is expected), dropped by the self-check because it could not confirm it from the excerpt (the reason does not start with "Not enough context:"). The look-up read four whole `system/` files at once and one file that does not exist (`database/transactions.py`).
+
+Direction from unit 20: thinking hurts the review (large prompt, runaways or misses), and helps the self-check (small prompt, one claim to check). Thinking per node would be a change in `build_graph` (my code). Claude recommended to run the 26 dev units without thinking first and decide about the self-check with that data. **My decision: the self-check thinks** (`OLLAMA_VERIFY_REASONING=low`), the review does not (`OLLAMA_REASONING=false`), because the one case where the difference showed (unit 20) points that way and the self-check's prompt is small. The stored runs keep the kept and the dropped findings, so the agent without the self-check (kept plus dropped) still comes from the same runs.
 
 ## 5.2 checkpoint with a local model (2026-11-16/17)
 

@@ -65,6 +65,19 @@ def test_unknown_thinking_level_names_the_variable(monkeypatch):
         get_settings()
 
 
+def test_verifier_thinking_is_read_from_environment(monkeypatch):
+    monkeypatch.setenv("OLLAMA_VERIFY_REASONING", "medium")
+
+    assert get_settings().ollama_verify_reasoning == "medium"
+
+
+def test_unknown_verifier_thinking_names_the_variable(monkeypatch):
+    monkeypatch.setenv("OLLAMA_VERIFY_REASONING", "yes")
+
+    with pytest.raises(ConfigError, match="OLLAMA_VERIFY_REASONING"):
+        get_settings()
+
+
 def test_context_window_is_read_from_environment(monkeypatch):
     monkeypatch.setenv("OLLAMA_NUM_CTX", "32768")
 
