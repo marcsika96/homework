@@ -322,6 +322,24 @@ Colab T4, `PROMPT_VERSION` 1, budget 8, all 26 dev units: 26 stored, 0 failed. S
 3. **The output limit worked, and it cost most of the time.** Three files (`backend/responses.py`, `system/page_views.py`, `usecases/notification_preferences.py`) have 4,105 output tokens: one answer cut at 4,096 plus a few tokens. It was the `lookup` answer, not the findings: a cut JSON answer would not validate and would be asked again, which would show 3 calls instead of 2. These three files took 4,408 s, 63 % of the run. The cut is not reported anywhere (`BACKLOG.md`).
 4. **Not shown:** tool use and the quality of the findings, because `phi4-mini` made no tool calls, as in the benchmark. The agent behaved like the baseline plus a self-check. The Gemini run of this checkpoint stays open (`BACKLOG.md`).
 
+## Status and next steps (2026-11-23, evening)
+
+Done today, all committed and pushed (the last commit is `05c7c94`); `pytest` has 309 offline tests:
+
+- Thinking: the review runs without thinking, the self-check with "low" (`OLLAMA_REASONING`, `OLLAMA_VERIFY_REASONING`); a cut-off thinking answer is asked again without thinking.
+- The self-check sees what the agent looked up (`render_lookups`, the `looked_up` key of the `Send` payload).
+- A look-up answer that Ollama cannot read ends the look-up instead of the review (trace status `unreadable_reply`).
+- Dev runs of prompt version 1 on Colab, stored in `data/runs-colab-qwen3.5-9b-think-false-verify-low/` and analysed in "Baseline dev run" and "Agent dev run": baseline 1 true of 35, agent 1 true of 11, the known defect found by both.
+- After the runs: every self-check verdict is stored with its reason (`checks`), `read_file` answers a package or a directory with its files, and prompt version 2 ("What is not a finding").
+
+Next, on Colab (T4 time is short, so in this order):
+
+1. Open the notebook fresh from the repository (section 1 has `PROMPT_VERSION = "2"`). Run sections 1 to 6, but leave out the `pytest` line of section 4 (about 5 minutes of GPU time; the tests passed on the laptop). Section 6 must print a run folder ending in `-p2`. Skip 7 and 7b.
+2. Section 8, the baseline (about 8 minutes). Check unit I3 `database/classes.py`: if it no longer has the `DurationField` finding, stop and change the prompt before the agent run.
+3. Section 9, the agent (about 1 hour). If the time runs out, the stored units stay on Drive and the next session continues.
+4. Disconnect the runtime right after; download the `-p2` folder from Drive into `data/` and compare it with version 1, group by group, now with the self-check's reasons.
+
+Then: decide whether experiment 3 is needed (the look-up request: find the callers before reporting a missing check), freeze the prompts, try the judge (section 10) on the frozen dev runs, and only after the freeze the test set.
 ## Parts 5 and 6: status (2026-11-16, evening)
 
 Written and committed: 5.1 to 5.4 (the `review` command, the reports, the error cases, the local path), 6.1 (resumable runner, `reviewgraph eval`) and 6.2 (the judge, `reviewgraph eval --judge`). `pytest` has 264 offline tests. Each exercise has a walkthrough in `walkthroughs/`, and what is known and not done is in `BACKLOG.md` with the reason.
