@@ -1,15 +1,19 @@
-from conftest import git, write
+from conftest import git, tool_call, write
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from reviewgraph.gitrepo import GitRepo
 from reviewgraph.prompts import (
+    NO_LOOKUPS,
     NO_RULES,
     REVIEW_SYSTEM_PROMPT,
     build_agent_system_prompt,
     build_review_request,
+    build_verification_request,
     load_rules,
     render_diff,
+    render_lookups,
 )
-from reviewgraph.schemas import Category
+from reviewgraph.schemas import Category, Finding
 
 
 def test_render_diff_numbers_lines_as_in_the_new_file(tiny_repo):
@@ -115,3 +119,75 @@ def test_agent_system_prompt_is_the_reviewer_prompt_plus_tools_and_budget():
         assert tool_name in prompt
     # The baseline has no tools, so its prompt must not mention them.
     assert "tool" not in REVIEW_SYSTEM_PROMPT
+
+
+# --- The self-check's view of the look-ups ------------------------------------
+
+
+def look_up_state() -> tuple[list, list[dict]]:
+    """Messages and trace of a look-up phase: two executed calls, one refused by the budget."""
+    messages = [
+        HumanMessage("Review this change."),
+        AIMessage(content="", tool_calls=[
+            tool_call("read_file", "call-1", path="app/studio/backend/classes.py", start_line=40),
+            tool_call("search_code", "call-2", pattern="def add_class_to_schedule"),
+            tool_call("read_file", "call-3", path="app/studio/models.py"),
+        ]),
+        ToolMessage(content="   58       def __bool__(self):", tool_call_id="call-1"),
+        ToolMessage(content="app/studio/system/transactions.py:66: def add_class_to_schedule(request, checked_details):",
+                    tool_call_id="call-2"),
+        ToolMessage(content="Tool budget used up.", tool_call_id="call-3"),
+        AIMessage(content="I think line 35 is wrong."),
+    ]
+    trace = [
+        {"tool_call_id": "call-1", "tool_name": "read_file",
+         "tool_args": {"path": "app/studio/backend/classes.py", "start_line": 40}, "status": "executed"},
+        {"tool_call_id": "call-2", "tool_name": "search_code",
+         "tool_args": {"pattern": "def add_class_to_schedule"}, "status": "executed"},
+        {"tool_call_id": "call-3", "tool_name": "read_file",
+         "tool_args": {"path": "app/studio/models.py"}, "status": "budget_exceeded"},
+    ]
+    return messages, trace
+
+
+def test_render_lookups_shows_each_executed_call_with_its_answer():
+    messages, trace = look_up_state()
+
+    rendered = render_lookups(messages, trace)
+
+    assert rendered == (
+        "### read_file(path='app/studio/backend/classes.py', start_line=40)\n\n"
+        "   58       def __bool__(self):\n\n"
+        "### search_code(pattern='def add_class_to_schedule')\n\n"
+        "app/studio/system/transactions.py:66: def add_class_to_schedule(request, checked_details):"
+    )
+
+
+def test_render_lookups_leaves_out_refused_calls_and_the_reviewers_own_words():
+    messages, trace = look_up_state()
+
+    rendered = render_lookups(messages, trace)
+
+    assert "Tool budget used up." not in rendered
+    assert "app/studio/models.py" not in rendered
+    assert "I think line 35 is wrong." not in rendered
+    assert "Review this change." not in rendered
+
+
+def test_render_lookups_without_tool_calls_says_so():
+    assert render_lookups([HumanMessage("Review this change.")], []) == NO_LOOKUPS
+
+
+def test_verification_request_contains_the_looked_up_code():
+    finding = Finding(file="app/studio/usecases/add_class.py", line_start=35, line_end=35, category="logic",
+                      severity="high", explanation="Passes problems instead of checked details.", fix="Pass the details.")
+    messages, trace = look_up_state()
+
+    request = build_verification_request(finding, "rules", "   35   return add_class_to_schedule(request, problems)",
+                                         render_lookups(messages, trace))
+    without = build_verification_request(finding, "rules", "   35   return add_class_to_schedule(request, problems)")
+
+    assert "## Code the reviewer looked up" in request
+    assert "def __bool__(self):" in request
+    assert without.endswith(NO_LOOKUPS + "\n")
+

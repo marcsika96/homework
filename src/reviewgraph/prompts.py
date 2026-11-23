@@ -114,18 +114,20 @@ VERIFICATION_SYSTEM_PROMPT = """You are a senior Django developer who checks one
 - The project rules (AGENTS.md) as they were at the reviewed commit.
 - The finding: the file, the line range, the category, the severity, what the reviewer says is wrong, and the fix it proposes.
 - An excerpt of the file: the lines of the finding with some lines before and after them. Every line starts with its line number in the file. The excerpt is not the whole file.
+- The code the reviewer looked up before writing the finding: other files, parts of files and search results at the same commit, each under the tool call that produced it. It can be empty.
 
 ## How to check
 
 1. Read the lines the finding points at. Do they contain the code the finding describes?
 2. Follow what that code does. Does the described wrong behaviour really happen, or does the code really break the project rule the finding names?
-3. Decide from the rules and the excerpt only. The reviewer's explanation is the claim you are checking, not evidence for it.
+3. When the finding depends on code elsewhere (a function it calls, a class it uses, a setting), find that code in the looked-up code and check the claim against it: the signature, the return value, special methods such as `__bool__`, the docstring.
+4. Decide from the rules, the excerpt and the looked-up code only. The reviewer's explanation is the claim you are checking, not evidence for it.
 
 ## Your answer
 
-- supported = true: the excerpt shows that the code has the described defect.
+- supported = true: the excerpt, with the looked-up code where the finding depends on it, shows that the code has the described defect.
 - supported = false: the code does not have the defect, the lines do not contain what the finding describes, or the finding is about style or preference and not about wrong behaviour or a broken rule.
-- supported = false also when the excerpt is not enough to decide, for example when the finding depends on code in another file or outside the excerpt. In that case start the reason with "Not enough context:" and name what is missing.
+- supported = false also when the excerpt and the looked-up code are not enough to decide, for example when the finding depends on code that is shown in neither. In that case start the reason with "Not enough context:" and name what is missing.
 
 Give the reason in one sentence and name the line or the rule that decided it. Judge only whether the defect exists: do not judge the severity or the category, and do not report other defects.
 """
@@ -147,7 +149,13 @@ VERIFICATION_REQUEST = """\
 ## Excerpt of {finding.file}
 
 {code}
+
+## Code the reviewer looked up
+
+{looked_up}
 """
+
+NO_LOOKUPS = "(The reviewer looked nothing up.)"
 
 # --- The judge of the evaluation ----------------------------------------------
 # Not part of the reviewer: it rates findings afterwards. It has its own version
@@ -252,9 +260,28 @@ def build_agent_system_prompt(max_tool_calls: int) -> str:
     return REVIEW_SYSTEM_PROMPT + "\n" + LOOKUP_INSTRUCTIONS.format(max_tool_calls=max_tool_calls)
 
 
-def build_verification_request(finding, rules: str, code: str) -> str:
-    """The user message of the self-check: the rules, one finding and the numbered code around it."""
-    return VERIFICATION_REQUEST.format(finding=finding, rules=rules, code=code)
+def build_verification_request(finding, rules: str, code: str, looked_up: str = NO_LOOKUPS) -> str:
+    """The user message of the self-check: the rules, one finding, the numbered code around it
+    and what the reviewer looked up (render_lookups)."""
+    return VERIFICATION_REQUEST.format(finding=finding, rules=rules, code=code, looked_up=looked_up)
+
+
+def render_lookups(messages: list, trace: list[dict]) -> str:
+    """The results of the look-up phase for the self-check: each executed tool call and its answer.
+
+    `messages` and `trace` are the graph state's lists. Only calls with the trace
+    status "executed" are shown; a refused call or an unknown tool brought no
+    code. The reviewer's own messages are left out on purpose: the self-check
+    gets the evidence the reviewer saw, not the reviewer's reasoning.
+    """
+    executed = {entry["tool_call_id"]: entry for entry in trace if entry["status"] == "executed"}
+    parts = []
+    for message in messages:
+        entry = executed.get(getattr(message, "tool_call_id", None))
+        if message.type == "tool" and entry is not None:
+            arguments = ", ".join(f"{name}={value!r}" for name, value in entry["tool_args"].items())
+            parts.append(f"### {entry['tool_name']}({arguments})\n\n{message.content}")
+    return "\n\n".join(parts) if parts else NO_LOOKUPS
 
 
 def number_lines(text: str) -> str:
