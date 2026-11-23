@@ -1,4 +1,5 @@
 import httpx
+import ollama
 import pytest
 from conftest import FakeModel, raw_message, reply
 from langchain_core.messages import AIMessage, HumanMessage
@@ -19,6 +20,7 @@ from reviewgraph.llm import (
     call_structured,
     get_chat_model,
     is_transient_error,
+    is_unreadable_reply,
     model_name,
     verifier_model,
     without_thinking,
@@ -312,3 +314,23 @@ def test_gemini_model_does_not_retry_by_itself():
     model = get_chat_model(Settings(llm_provider="gemini", gemini_api_key="test-key"))
 
     assert model.max_retries == 0
+
+
+# --- An answer Ollama could not read --------------------------------------------
+
+
+def test_a_broken_tool_call_in_the_answer_stream_is_an_unreadable_reply():
+    error = ollama.ResponseError("XML syntax error on line 3: element <function> closed by </parameter>")
+
+    assert is_unreadable_reply(error) is True
+    assert is_transient_error(error) is False      # the same request would most likely break again
+
+
+@pytest.mark.parametrize("error", [
+    ollama.ResponseError('model "qwen3.5:9b" not found', status_code=404),
+    ollama.ResponseError("internal error", status_code=500),
+    ConnectionError("Failed to connect to Ollama"),
+    ValueError("XML syntax error"),
+])
+def test_a_refused_request_or_another_error_is_not_an_unreadable_reply(error):
+    assert is_unreadable_reply(error) is False

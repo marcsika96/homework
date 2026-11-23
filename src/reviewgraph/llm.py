@@ -65,6 +65,21 @@ def is_transient_error(error: Exception) -> bool:
     return isinstance(error, (GoogleAPIError, httpx.TransportError))
 
 
+def is_unreadable_reply(error: Exception) -> bool:
+    """True if Ollama failed while it was producing the answer, not before.
+
+    The Ollama client raises ResponseError with the HTTP status for a refused
+    request (404 unknown model, 500 server error), and with status -1 for an
+    error inside the answer stream. The known case: Ollama could not parse the
+    tool call the model wrote ("XML syntax error on line 3: element <function>
+    closed by </parameter>", qwen3.5:9b on dev unit 25, 2026-11-23). At
+    temperature 0 the same request most likely brings the same broken answer,
+    so this is not a transient error; the look-up ends instead (`lookup` in
+    graph.py).
+    """
+    return isinstance(error, ollama.ResponseError) and error.status_code == -1
+
+
 def retry_wait(failed_attempts: int) -> float:
     """Seconds to wait before the next attempt, after this many failed ones."""
     return RETRY_INITIAL_INTERVAL * RETRY_BACKOFF_FACTOR ** (failed_attempts - 1)
