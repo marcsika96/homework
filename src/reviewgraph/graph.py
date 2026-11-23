@@ -14,7 +14,7 @@ from reviewgraph.gitrepo import GitError, GitRepo
 from reviewgraph.llm import RETRY_BACKOFF_FACTOR, RETRY_INITIAL_INTERVAL, RETRY_MAX_ATTEMPTS, StructuredOutputError, UsageCallback, call_structured, get_chat_model, is_transient_error, model_name, verifier_model
 from reviewgraph.schemas import Finding, ReviewResult, Verification, clean_findings, ReviewOutput
 from reviewgraph.tools import make_tools
-from reviewgraph.prompts import FINAL_INSTRUCTION, LOOKUP_REQUEST, VERIFICATION_SYSTEM_PROMPT, build_agent_system_prompt, build_review_request, build_verification_request, load_rules, render_diff
+from reviewgraph.prompts import FINAL_INSTRUCTION, LOOKUP_REQUEST, VERIFICATION_SYSTEM_PROMPT, build_agent_system_prompt, build_review_request, build_verification_request, load_rules, render_diff, render_lookups
 
 
 
@@ -40,7 +40,7 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
     tools = make_tools(repo, sha)
     tools_by_name = {t.name: t for t in tools}
     lookup_model = model.bind_tools(tools)
-    verifier = verifier_model(model)
+    verify_model = verifier_model(model) #because thinking did not help the agent, but without thinking the verifier dropped correct findings.
 
     def load_context(state: ReviewState) -> dict:
         """Step 1. No LLM call: read the diff and the rules, start the conversation."""
@@ -126,8 +126,9 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
         """One verify_finding branch per draft finding."""
         if not state["draft"]:
             return "finalize"
-        return [Send("verify_finding", {"finding": f, "commit": state["commit"]})
-                for f in state["draft"]]
+        looked_up = render_lookups(state["messages"], state.get("trace", []))
+        return [Send("verify_finding", {"finding": f, "commit": state["commit"], "looked_up": looked_up})
+            for f in state["draft"]]
 
     def verify_finding(payload: dict) -> dict:
         """Step 4. Re-check one finding against the code it points at."""
@@ -148,10 +149,10 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
         # Perform the verification logic here
         messages = [
             SystemMessage(VERIFICATION_SYSTEM_PROMPT),
-            HumanMessage(build_verification_request(finding, rules, context_text)),
+                        HumanMessage(build_verification_request(finding, rules, context_text, payload["looked_up"])),
         ]
         try:
-            output, raw_messages = call_structured(verifier, Verification, messages)
+            output, raw_messages = call_structured(verify_model, Verification, messages)
             return {"checked": [{"finding": finding, "supported": output.supported, "reason": output.reason}]}
         except StructuredOutputError as e:
             return {"checked": [{"finding": finding, "supported": True, "reason": f"Not verified: {e}"}]}

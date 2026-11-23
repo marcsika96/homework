@@ -87,11 +87,16 @@ def test_after_tools_with_a_budget_of_zero_never_goes_back(tiny_repo):
 def test_fan_out_sends_one_branch_per_draft_finding(tiny_repo):
     fan_out = routing(tiny_repo, "write_findings", "fan_out")
     draft = [make_finding(3), make_finding(7)]
+    messages = [asks_for_a_tool(), ToolMessage(content="class DanceClass(models.Model):", tool_call_id="call-1")]
+    trace = [{"tool_call_id": "call-1", "tool_name": "read_file", "tool_args": {"path": MODELS}, "status": "executed"}]
 
-    sends = fan_out({"draft": draft, "commit": tiny_repo.second_sha})
+    sends = fan_out({"draft": draft, "commit": tiny_repo.second_sha, "messages": messages, "trace": trace})
 
     assert all(isinstance(send, Send) and send.node == "verify_finding" for send in sends)
     assert [send.arg["finding"] for send in sends] == draft
+    # Every branch gets the same rendered look-ups (render_lookups).
+    for send in sends:
+        assert send.arg["looked_up"] == f"### read_file(path='{MODELS}')\n\nclass DanceClass(models.Model):"
 
 
 def test_fan_out_goes_straight_to_finalize_without_findings(tiny_repo):
@@ -185,4 +190,9 @@ def test_self_check_gets_a_fresh_context_with_the_code_around_the_finding(tiny_r
         request = self_check[1].content
         assert "Views never touch the database directly." in request      # the rules
         assert "    7       return render(request" in request             # numbered code of views.py
-        assert "PositiveIntegerField" not in request                      # not the tool results
+        # The tool results the reviewer saw (decision of 2026-11-23) ...
+        assert f"### read_file(path='{MODELS}')" in request
+        assert "PositiveIntegerField" in request                          # from models.py
+        # ... but not the reviewer's own words or the look-up instructions.
+        assert "I have what I need." not in request
+        assert "Step 1 of 2: look-up." not in request
