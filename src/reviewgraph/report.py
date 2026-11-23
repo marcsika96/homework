@@ -56,6 +56,12 @@ def render_file(result: ReviewResult) -> list[str]:
 
     if result.dropped:
         lines += [f"Dropped by the self-check: {len(result.dropped)}", ""]
+        # Runs stored before 2026-11-23 have no checks; then only the count is shown.
+        rejected = [check for check in result.checks if not check.supported]
+        for check in sorted(rejected, key=lambda c: (SEVERITY_RANK[c.finding.severity], c.finding.line_start)):
+            lines.append(f"- {location(check.finding)}: {cell(check.finding.explanation)} **Self-check:** {cell(check.reason)}")
+        if rejected:
+            lines.append("")
     return lines
 
 

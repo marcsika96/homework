@@ -3,7 +3,7 @@
 import json
 
 from reviewgraph.report import render_markdown, write_reports
-from reviewgraph.schemas import Finding, ReviewResult, RunStats
+from reviewgraph.schemas import Check, Finding, ReviewResult, RunStats
 
 COMMIT = "abc1234def5678"
 PATH = "app/studio/views.py"
@@ -72,6 +72,20 @@ def test_dropped_findings_are_counted():
     markdown = render_markdown([make_result(dropped=[make_finding(3, "low")])], COMMIT, "agent")
 
     assert "Dropped by the self-check: 1" in markdown
+
+
+def test_dropped_findings_are_listed_with_the_reason_of_the_self_check():
+    dropped = make_finding(3, "low", explanation="Line 3 crashes.")
+    kept = make_finding(7, "high")
+    checks = [
+        Check(finding=kept, supported=True, reason="Line 7 really does it."),
+        Check(finding=dropped, supported=False, reason="Not enough context: the caller is not shown."),
+    ]
+
+    markdown = render_markdown([make_result(findings=[kept], dropped=[dropped], checks=checks)], COMMIT, "agent")
+
+    assert f"- {PATH}:3: Line 3 crashes. **Self-check:** Not enough context: the caller is not shown." in markdown
+    assert "Line 7 really does it." not in markdown          # only the reasons of dropped findings
 
 
 def test_text_from_the_model_cannot_break_the_table():

@@ -200,6 +200,9 @@ def build_graph(model, repo: GitRepo, sha: str, max_tool_calls: int = 8):
 # --- Exercise 4.4: one entry function ---------------------------------------
 # Everything below this line was written by Claude Code (see notes.md).
 
+# Imported here and not at the top, because the imports above belong to the student's part.
+from reviewgraph.schemas import Check  # noqa: E402
+
 
 def recursion_limit(max_tool_calls: int) -> int:
     """Upper bound for the steps of one run, as a safety net behind the tool budget.
@@ -288,6 +291,7 @@ def _review_with_graph(
                     on_step(node, update)
         result.findings = state.get("findings", [])
         result.dropped = state.get("dropped", [])
+        result.checks = checks_in_draft_order(state)
     except StructuredOutputError as e:
         result.error = str(e)
     except GraphRecursionError:
@@ -298,3 +302,14 @@ def _review_with_graph(
     finally:
         result.trace = state.get("trace", [])
         result.stats.tool_calls = state.get("tool_calls_used", 0)
+
+
+def checks_in_draft_order(state: dict) -> list[Check]:
+    """The self-check's verdicts with their reasons, as stored in the result.
+
+    The verify_finding branches run in parallel, so `checked` is in the order
+    they finished; sorting by the draft makes the stored runs reproducible.
+    """
+    draft = state.get("draft", [])
+    checked = sorted(state.get("checked", []), key=lambda entry: draft.index(entry["finding"]))
+    return [Check(**entry) for entry in checked]

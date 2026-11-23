@@ -85,6 +85,34 @@ def test_full_run_with_budget_fan_out_and_self_check(tiny_repo):
     assert result.stats.latency_s >= 0
 
 
+def test_every_verdict_of_the_self_check_is_stored_with_its_reason_in_draft_order(tiny_repo):
+    def reasoned_verdict(messages) -> Verification:
+        kept = "- lines: 7-7\n" in messages[-1].content
+        return Verification(supported=kept, reason="Line 7 does it." if kept else "Line 3 is fine.")
+
+    draft = [make_finding(7, "high"), make_finding(3, "low")]
+    model = ScriptedChatModel(replies=[no_tool_calls(), ReviewOutput(findings=draft), reasoned_verdict, reasoned_verdict])
+
+    result = review_agent(tiny_repo.repo, tiny_repo.second_sha, VIEWS, model=model)
+
+    assert [(c.finding, c.supported, c.reason) for c in result.checks] == [
+        (make_finding(7, "high"), True, "Line 7 does it."),
+        (make_finding(3, "low"), False, "Line 3 is fine."),
+    ]
+    # The stored run keeps them (review.json and data/runs use model_dump).
+    assert result.model_dump()["checks"][1]["reason"] == "Line 3 is fine."
+
+
+def test_a_finding_the_self_check_could_not_check_is_stored_as_not_verified(tiny_repo):
+    not_json = lambda messages: AIMessage(content="I think it is fine.")
+    model = ScriptedChatModel(replies=[no_tool_calls(), ReviewOutput(findings=[make_finding(7)]), not_json, not_json])
+
+    result = review_agent(tiny_repo.repo, tiny_repo.second_sha, VIEWS, model=model)
+
+    assert len(result.checks) == 1 and result.checks[0].supported
+    assert result.checks[0].reason.startswith("Not verified:")
+
+
 def test_the_model_is_told_its_budget_and_gets_an_answer_for_every_tool_call(tiny_repo):
     three_calls = AIMessage(
         content="",

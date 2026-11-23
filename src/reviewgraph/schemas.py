@@ -92,12 +92,21 @@ class RunStats(BaseModel):
     output_tokens: int = 0
 
 
+class Check(BaseModel):
+    """One verdict of the self-check: the draft finding, whether it was kept, and why."""
+
+    finding: Finding
+    supported: bool
+    reason: str
+
+
 class ReviewResult(BaseModel):
     unit_id: str
     system: Literal["agent", "baseline"]
     model: str
     findings: list[Finding] = []
     dropped: list[Finding] = []      # removed by the self-check (agent only)
+    checks: list[Check] = []         # every verdict of the self-check with its reason, in draft order (agent only)
     trace: list[dict] = []           # tool calls and their arguments, for failure analysis
     stats: RunStats = RunStats()
     error: str | None = None
