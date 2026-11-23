@@ -32,6 +32,10 @@ API_TIMEOUT_SECONDS = 300
 # The context window and the limit of one answer's length of a local model are
 # the settings OLLAMA_NUM_CTX and OLLAMA_NUM_PREDICT (config.py).
 
+# OLLAMA_REASONING as ChatOllama's `reasoning`: "true" and "false" become
+# booleans, a level ("low", "medium", "high") is passed on as it is.
+REASONING_VALUES = {"true": True, "false": False}
+
 
 class StructuredOutputError(Exception):
     """The model did not return a valid object, even after one retry."""
@@ -100,6 +104,7 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
         temperature=0,
         num_ctx=settings.ollama_num_ctx,
         num_predict=settings.ollama_num_predict,
+        reasoning=REASONING_VALUES.get(settings.ollama_reasoning, settings.ollama_reasoning),
     )
 
 
@@ -145,7 +150,13 @@ def check_ollama(needs_tools: bool = False, settings: Settings | None = None) ->
 def model_name(settings: Settings | None = None) -> str:
     """Name of the model that get_chat_model() returns, for reports and cached runs."""
     settings = settings or get_settings()
-    return settings.gemini_model if settings.llm_provider == "gemini" else settings.ollama_model
+    if settings.llm_provider == "gemini":
+        return settings.gemini_model
+    # The thinking mode is part of the name, so that stored runs of one mode are
+    # not taken for runs of another (is_done in evaluation/runner.py).
+    if settings.ollama_reasoning is None:
+        return settings.ollama_model
+    return f"{settings.ollama_model}, reasoning {settings.ollama_reasoning}"
 
 
 def call_structured(
@@ -153,30 +164,77 @@ def call_structured(
 ) -> tuple[BaseModel, list[AIMessage]]:
     """Return (parsed, raw_messages). Retry once if the reply does not validate.
 
+    The retry tells the model what was wrong. Exception: a local model that
+    thinks and was cut off at OLLAMA_NUM_PREDICT is asked the same again with
+    thinking switched off (without_thinking), because with thinking it would
+    most likely run into the limit again (dev unit 20 on 2026-11-23: three
+    answers of 16,384 tokens, 11 minutes each, none of them with a reply).
+
     `raw_messages` has one message per attempt (one or two), so the caller can
     count every LLM call and its tokens with add_usage().
     """
-    runnable = model.with_structured_output(schema, include_raw=True)
     raw_messages = []
     attempt_messages = list(messages)
+    attempt_model = model
 
     for attempt in range(2):
+        runnable = attempt_model.with_structured_output(schema, include_raw=True)
         # The result is a dict with "raw", "parsed" and "parsing_error".
         result = runnable.invoke(attempt_messages)
-        raw_messages.append(result["raw"])
+        raw = result["raw"]
+        raw_messages.append(raw)
         if result["parsed"] is not None and result["parsing_error"] is None:
             return result["parsed"], raw_messages
 
         error = result["parsing_error"] or "the reply was empty"
-        attempt_messages = list(messages) + [
-            HumanMessage(
-                f"Your previous reply was not valid for the required format: {error}\n"
-                "Answer again and follow the format exactly."
-            )
-        ]
+        fallback = without_thinking(attempt_model) if was_cut_off(raw) else None
+        if fallback is not None:
+            attempt_model = fallback
+            attempt_messages = list(messages)
+        else:
+            attempt_messages = list(messages) + [
+                HumanMessage(
+                    f"Your previous reply was not valid for the required format: {error}\n"
+                    "Answer again and follow the format exactly."
+                )
+            ]
 
     raise StructuredOutputError(
-        f"The model did not return a valid {schema.__name__} in two attempts: {error}", raw_messages
+        f"The model did not return a valid {schema.__name__} in two attempts: {error} "
+        f"(last reply: {describe_reply(raw_messages[-1])})",
+        raw_messages,
+    )
+
+
+def was_cut_off(raw: AIMessage) -> bool:
+    """True if a local model stopped the answer at OLLAMA_NUM_PREDICT (Ollama's done_reason "length")."""
+    return (raw.response_metadata or {}).get("done_reason") == "length"
+
+
+def without_thinking(model: BaseChatModel) -> BaseChatModel | None:
+    """The same model with thinking switched off, or None if there is nothing to switch off.
+
+    Only when thinking was switched on by OLLAMA_REASONING (true or a level).
+    Unset leaves the model's own default, and a model that cannot think might
+    refuse the `think` setting, so it keeps the normal retry.
+    """
+    if getattr(model, "reasoning", None) in (None, False):
+        return None
+    return model.model_copy(update={"reasoning": False})
+
+
+def describe_reply(raw: AIMessage) -> str:
+    """Why an answer ended and how long it was, for error messages.
+
+    Ollama calls the reason done_reason ("stop", or "length" at OLLAMA_NUM_PREDICT),
+    Gemini finish_reason.
+    """
+    metadata = raw.response_metadata or {}
+    usage = raw.usage_metadata or {}
+    reason = metadata.get("done_reason") or metadata.get("finish_reason") or "unknown"
+    return (
+        f"stop reason {reason}, {usage.get('input_tokens', '?')} prompt tokens, "
+        f"{usage.get('output_tokens', '?')} answer tokens"
     )
 
 

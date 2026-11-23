@@ -23,11 +23,11 @@ Things that are known and not done, each with the reason. When one is done, move
 
 ## From Exercise 6.1 (resumable runner)
 
-### An overloaded model is stored as a failed review
+### The judge does not stop when the model is overloaded
 
-- **What:** on 2026-11-18 the Gemini baseline run on the dev units got `503 UNAVAILABLE` ("model is currently experiencing high demand") for the first two units, after the 4 attempts of the retry rule. Both were stored as failed reviews, and by the rerun rules a stored failure is not repeated. Every further unit would have failed the same way, so the run was stopped by hand.
-- **Why not done:** the rule "failures are stored" is right for errors of the unit itself; an outage of the provider is not one. Found during the run, not decided yet.
-- **If it is done later:** treat a 503 that is left after the retries like the daily quota in `run_units`: stop the run without storing that unit. Until then, delete the stored failures of such a run by hand before starting it again.
+- **What:** `reviewgraph eval` stops when the model is overloaded (503 or 504 after the retries), without storing that unit. `eval --judge` (`judge_runs`) stops only for the daily quota; an overloaded judge model would record one failure per finding and use up the quota.
+- **Why not done:** the judge has not run against Gemini yet, and the runner was the urgent case.
+- **If it is done later:** the same check (`hit_overload` in `runner.py`) in `judge_runs`.
 
 ### The checkpoint has not been run with a real model
 
@@ -55,11 +55,11 @@ Things that are known and not done, each with the reason. When one is done, move
 - **Why not done:** the Gemini agent needs about 130 requests for the 13 files, against 20 per day.
 - **If it is done later:** when there is a source of requests for the evaluation (Colab or another one), the same command without the `$env:` lines.
 
-### A cut-off answer of a local model is not reported
+### A cut-off answer of a local model is not counted
 
-- **What:** when a local model reaches `OLLAMA_NUM_PREDICT` (4,096 tokens), Ollama stops the answer and marks it with `done_reason: "length"`. Nothing records this. In the 5.2 checkpoint three `lookup` answers were cut off, and the report says "Reviewed, no findings" for those files like for any other.
-- **Why not done:** it concerns only the local path, which is not the evaluated configuration, and the run stats (LLM calls, tokens) already show it indirectly: 4,096 or a few more output tokens in one file.
-- **If it is done later:** count the answers with `done_reason == "length"` in `UsageCallback` (`llm.py`) as a new field of `RunStats`, and show the number in the report.
+- **What:** when a local model reaches `OLLAMA_NUM_PREDICT`, Ollama stops the answer and marks it with `done_reason: "length"`. Since 2026-11-23 a structured answer that is cut off while thinking is asked again without thinking, and a failed one says `stop reason length` in its error. A cut-off **look-up** turn is still not recorded: it has no tool calls, so the look-up just ends, and the report says "Reviewed, no findings" like for any other file. In the 5.2 checkpoint three `lookup` answers were cut off; on 2026-11-23 the last look-up turn of dev unit 20 was.
+- **Why not done:** the run stats (LLM calls, tokens) show it indirectly, and the evaluated configuration on Colab now uses a thinking level, which should make it rare.
+- **If it is done later:** count the answers with `done_reason == "length"` in `UsageCallback` (`llm.py`) as a new field of `RunStats`, and show the number in the report and in `eval --cached`.
 
 ## From Exercise 5.3 (error cases)
 

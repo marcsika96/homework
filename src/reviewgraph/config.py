@@ -27,6 +27,12 @@ class Settings(BaseModel):
     # warning. A diff, AGENTS.md and a few tool results take 10-13k tokens, so on
     # the GPU (Colab) the notebook sets 32,768 to leave room for the thinking.
     ollama_num_ctx: int = Field(16384, gt=0)
+    # Thinking of a local model: true, false, or a level (low, medium, high), sent
+    # as Ollama's `think`. Unset: the model's own default, as before this setting.
+    # On 2026-11-23 qwen3.5:9b thought for 2,363 tokens by default and 944 with
+    # "low" on a one-line question; on dev unit 20 its default thinking ran into
+    # OLLAMA_NUM_PREDICT (16,384) three times in a row and gave no answer.
+    ollama_reasoning: Literal["true", "false", "low", "medium", "high"] | None = None
     target_repo_path: str = "data/target"
     max_tool_calls: int = 8
     requests_per_minute: float = 10

@@ -20,6 +20,7 @@ from reviewgraph.llm import (
     get_chat_model,
     is_transient_error,
     model_name,
+    without_thinking,
 )
 from reviewgraph.schemas import ReviewOutput, RunStats
 
@@ -69,6 +70,84 @@ def test_empty_reply_counts_as_invalid():
 
     assert parsed == VALID
     assert len(raw_messages) == 2
+
+
+def cut_off_reply() -> dict:
+    """An answer that Ollama stopped at OLLAMA_NUM_PREDICT while the model was thinking."""
+    raw = AIMessage(
+        content="",
+        response_metadata={"done_reason": "length"},
+        usage_metadata={"input_tokens": 11600, "output_tokens": 16384, "total_tokens": 27984},
+    )
+    return {"raw": raw, "parsed": None, "parsing_error": ValueError("Invalid json output: ")}
+
+
+class ThinkingFakeModel(FakeModel):
+    """A FakeModel with ChatOllama's `reasoning` setting and model_copy()."""
+
+    def __init__(self, replies: list[dict], reasoning):
+        super().__init__(replies)
+        self.reasoning = reasoning
+        self.used_reasoning = []        # the reasoning setting of every call
+
+    def invoke(self, messages):
+        self.used_reasoning.append(self.reasoning)
+        return super().invoke(messages)
+
+    def model_copy(self, update):
+        # The copy shares the replies and the records, so the test sees both models' calls.
+        copy = ThinkingFakeModel([], update["reasoning"])
+        copy.replies, copy.received, copy.used_reasoning = self.replies, self.received, self.used_reasoning
+        return copy
+
+
+def test_cut_off_answer_is_asked_again_without_thinking():
+    model = ThinkingFakeModel([cut_off_reply(), reply(VALID)], reasoning="low")
+    messages = [HumanMessage("review this")]
+
+    parsed, raw_messages = call_structured(model, ReviewOutput, messages)
+
+    assert parsed == VALID
+    assert len(raw_messages) == 2
+    assert model.used_reasoning == ["low", False]
+    # The same request again: no correction message, which would not help.
+    assert model.received[1] == messages
+    # The caller's model keeps its setting.
+    assert model.reasoning == "low"
+
+
+def test_cut_off_answer_without_reasoning_setting_gets_the_normal_retry():
+    # OLLAMA_REASONING unset: the model's own default, which call_structured does not touch.
+    model = ThinkingFakeModel([cut_off_reply(), reply(VALID)], reasoning=None)
+
+    call_structured(model, ReviewOutput, [HumanMessage("review this")])
+
+    assert model.used_reasoning == [None, None]
+    assert "not valid for the required format" in model.received[1][-1].content
+
+
+def test_failure_message_says_why_the_last_answer_ended():
+    model = ThinkingFakeModel([cut_off_reply(), cut_off_reply()], reasoning="low")
+
+    with pytest.raises(StructuredOutputError) as error:
+        call_structured(model, ReviewOutput, [HumanMessage("review this")])
+
+    message = str(error.value)
+    assert "stop reason length" in message
+    assert "11600 prompt tokens" in message
+    assert "16384 answer tokens" in message
+
+
+def test_without_thinking_copies_a_thinking_ollama_model():
+    model = ChatOllama(model="qwen3.5:9b", reasoning="low")
+
+    copy = without_thinking(model)
+
+    assert copy.reasoning is False
+    assert copy.model == "qwen3.5:9b"
+    assert model.reasoning == "low"
+    assert without_thinking(ChatOllama(model="qwen3.5:9b")) is None
+    assert without_thinking(ChatOllama(model="qwen3.5:9b", reasoning=False)) is None
 
 
 def test_add_usage_counts_every_attempt():
@@ -126,6 +205,20 @@ def test_ollama_answer_limit_and_context_come_from_settings():
 
     assert model.num_predict == 16384
     assert model.num_ctx == 32768
+
+
+@pytest.mark.parametrize("setting, sent", [(None, None), ("true", True), ("false", False), ("low", "low")])
+def test_ollama_thinking_comes_from_settings(setting, sent):
+    settings = Settings(llm_provider="ollama", ollama_model="qwen3.5:9b", ollama_reasoning=setting)
+
+    assert get_chat_model(settings).reasoning == sent
+
+
+def test_thinking_mode_is_part_of_the_model_name():
+    # So that stored runs of one mode are not skipped as done for another.
+    assert model_name(Settings(llm_provider="ollama", ollama_model="qwen3.5:9b")) == "qwen3.5:9b"
+    low = Settings(llm_provider="ollama", ollama_model="qwen3.5:9b", ollama_reasoning="low")
+    assert model_name(low) == "qwen3.5:9b, reasoning low"
 
 
 # The 429 of 2026-11-16, shortened. The quota id is what marks the daily limit.

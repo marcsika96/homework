@@ -52,6 +52,19 @@ def test_answer_limit_must_be_positive(monkeypatch):
         get_settings()
 
 
+def test_thinking_level_is_read_from_environment(monkeypatch):
+    monkeypatch.setenv("OLLAMA_REASONING", "low")
+
+    assert get_settings().ollama_reasoning == "low"
+
+
+def test_unknown_thinking_level_names_the_variable(monkeypatch):
+    monkeypatch.setenv("OLLAMA_REASONING", "very low")
+
+    with pytest.raises(ConfigError, match="OLLAMA_REASONING"):
+        get_settings()
+
+
 def test_context_window_is_read_from_environment(monkeypatch):
     monkeypatch.setenv("OLLAMA_NUM_CTX", "32768")
 
