@@ -1,0 +1,101 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/forms.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [
+      {
+        "file": "app/studio/forms.py",
+        "line_start": 49,
+        "line_end": 54,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The form's full_clean() method replaces self._errors with an ErrorDict and then populates it from submitted_errors, but Django's Form class expects _errors to be a dict-like object where each key is the field name and value is a list of error messages. The code creates ErrorDict() which is not the same as the expected structure - it should be a regular dict with lists of strings. Additionally, self.cleaned_data = {} clears all cleaned data even when validation passes, which breaks normal form behavior.",
+        "fix": "Replace lines 49-54 with: def full_clean(self):\n    \"\"\"Takes the errors from the backend's check instead of validating again.\"\"\"\n    if self.submitted_errors:\n        self._errors = {}\n        for name, messages in self.submitted_errors.items():\n            self._errors[name] = list(messages)\n    else:\n        super().full_clean()"
+      }
+    ],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "23c1ab31-e189-43d4-a059-394187bd16b5",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "b23198e4-a47a-4897-b935-0a2d2adbfcbb",
+        "tool_name": "list_files",
+        "tool_args": {
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "a8ed688f-fe0f-4a8c-a682-cd5589084afc",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/__init__.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "55aaab00-72a3-4837-8f16-d450140f9986",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/accounts.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "8de8029f-7ab4-4045-adcf-90aff12b3710",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "NotificationPreferencesForm",
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "80376e6d-d2cb-4588-af51-03d0810efc28",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/pages.py",
+          "start_line": 100,
+          "end_line": 150
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "f051a5e5-6c18-40ab-b2a3-9279190d1e1d",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/pages.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "1912e3ae-9edb-405c-818a-e5108b5ba340",
+        "tool_name": "search_code",
+        "tool_args": {
+          "directory": "app/studio/usecases",
+          "pattern": "notification_preferences"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 116.309,
+      "llm_calls": 10,
+      "tool_calls": 8,
+      "input_tokens": 84250,
+      "output_tokens": 1803
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:39:02+00:00"
+}

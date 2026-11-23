@@ -1,0 +1,41 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/usecases/add_class.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/usecases/add_class.py",
+        "line_start": 16,
+        "line_end": 16,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The function `add_class_to_schedule` is imported from `studio.system.transactions`. In the context of adding a class to a schedule (which involves modifying data), this function should enforce authorization checks. However, based on the project rules and typical Django patterns, if `add_class_to_schedule` does not internally handle role-based access control (RBAC) or session validation, it could allow unauthorized users to add classes if called directly or if the decorator `@role_required(Role.TEACHER)` is insufficient for this specific action. Given that the function is imported and used without an explicit check inside `class_creation`, and assuming `add_class_to_schedule` does not have its own authorization logic (which is common for backend functions), this could lead to unauthorized data modification.",
+        "fix": "Ensure that `add_class_to_schedule` includes internal authorization checks or verify that the decorator `@role_required(Role.TEACHER)` is sufficient and correctly applied. If `add_class_to_schedule` lacks authorization logic, add it there or pass the user context explicitly."
+      },
+      {
+        "file": "app/studio/usecases/add_class.py",
+        "line_start": 31,
+        "line_end": 35,
+        "category": "transaction",
+        "severity": "medium",
+        "explanation": "The code uses `with transaction.atomic():` to wrap the validation and storage of a class. However, if `add_class_to_schedule` performs additional database operations outside this block (e.g., sending notifications or updating related records), those operations might not be atomic with the class creation. Additionally, if `conflict_or_invalid_data` or `display_class_details_error` perform any database writes (unlikely but possible), they would also need to be inside the transaction. The current structure assumes all work is within the block, which may not hold if `add_class_to_schedule` has side effects outside the atomic block.",
+        "fix": "Ensure that all database operations related to adding a class, including any side effects like notifications or related record updates, are performed within the `transaction.atomic()` block. If `add_class_to_schedule` performs external work, refactor it to keep all DB writes inside the transaction."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 22.819,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 3937,
+      "output_tokens": 495
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:06:47+00:00"
+}

@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/forms.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/forms.py",
+        "line_start": 10,
+        "line_end": 12,
+        "category": "logic",
+        "severity": "low",
+        "explanation": "The docstring claims that malformed email addresses are reported as invalid credentials because the form does not validate them. However, Django's `EmailField` automatically validates the format on submission (via `clean()`). If a user enters 'not-an-email', Django will raise a `ValidationError` for 'Enter a valid email address' before the backend checks credentials. This contradicts the docstring and changes the UX: malformed emails are shown as form errors, not as 'invalid credentials'.",
+        "fix": "Remove or correct the claim in the docstring to reflect that Django's built-in validation will catch malformed emails."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 8.184,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 3576,
+      "output_tokens": 175
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:00:11+00:00"
+}

@@ -1,0 +1,22 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/templatetags/components.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 0.945,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 3557,
+      "output_tokens": 7
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:00:27+00:00"
+}

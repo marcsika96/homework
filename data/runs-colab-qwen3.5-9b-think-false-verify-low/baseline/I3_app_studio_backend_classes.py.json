@@ -1,0 +1,50 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/backend/classes.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/classes.py",
+        "line_start": 107,
+        "line_end": 110,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The check `if start <= timezone.now()` allows a class to be scheduled exactly at the current moment. This is incorrect because a class must strictly start in the future (after the current time). If a user submits a request with a start time that is currently happening, the system would accept it, leading to scheduling conflicts or missed classes.",
+        "fix": "Change `if start <= timezone.now():` to `if start < timezone.now():` so that only classes starting strictly in the future are accepted."
+      },
+      {
+        "file": "app/studio/backend/classes.py",
+        "line_start": 124,
+        "line_end": 126,
+        "category": "validation",
+        "severity": "medium",
+        "explanation": "The validation `if last_date is None or (first_date and last_date <= first_date):` allows a weekly class where the end date equals the first date. This violates the requirement that a weekly class needs an end date after its first date, as stated in the docstring on line 125.",
+        "fix": "Change `last_date <= first_date` to `last_date < first_date` so that the end date must be strictly after the first date."
+      },
+      {
+        "file": "app/studio/backend/classes.py",
+        "line_start": 236,
+        "line_end": 237,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The conflict detection logic `if any(start < held_end and held_start < start + length for ...)` incorrectly identifies overlaps when classes only touch at their boundaries. For example, if one class ends at 18:00 and another starts at 18:00, the condition `start < held_end` (18:00 < 18:00) is false, so no conflict is detected. However, the docstring on line 225 states 'classes that only touch do not overlap', which implies this behavior is intended. But the real issue is that the condition should use `<=` for one side to correctly handle edge cases where classes might be considered overlapping if they share a boundary point in some contexts, or strictly `<` if touching is truly allowed. Given the docstring says 'classes that only touch do not overlap', the current logic is correct for that specific requirement. However, re-reading the condition: `start < held_end and held_start < start + length`. If class A is 17:00-18:00 and class B is 18:00-19:00, then for class B's start (18:00) vs class A's end (18:00), `18:00 < 18:00` is false, so no conflict. This matches the docstring. But wait, the docstring says 'classes that only touch do not overlap', which means touching should NOT be a conflict. The current logic does exactly that. So this is not a defect. Let me re-examine. Actually, I think I misread. The condition is correct for allowing touching classes. No defect here.",
+        "fix": "No change needed; the logic correctly allows classes that only touch at their boundaries to coexist."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 40.686,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 7171,
+      "output_tokens": 733
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:04:38+00:00"
+}

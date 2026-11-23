@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/backend/responses.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/responses.py",
+        "line_start": 54,
+        "line_end": 55,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The code stores `confirmation_kind.value` in the session and then redirects. However, `ConfirmationKind` is a Django Choices model (from `kinds.py`). Its `.value` attribute holds the model name string (e.g., 'SUCCESS'), but the session key expects the raw value that can be later reconstructed with `ConfirmationKind(value)`. This works only if the stored string exactly matches one of the allowed choices. If the code ever passes a non-choice value or if the Choices definition changes, `ConfirmationKind(value)` will raise a `ValueError` on the next request. The defect is fragile and could cause a crash when reading the flashed confirmation.",
+        "fix": "Store the raw choice label instead of `.value`, or ensure the session stores a string that is guaranteed to be one of the allowed choices. For example, use `confirmation_kind.label` if the model expects labels, or keep using `.value` but add an assertion or guard to ensure it is valid before storing."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 15.418,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4431,
+      "output_tokens": 240
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:05:09+00:00"
+}

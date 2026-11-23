@@ -1,0 +1,101 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/forms.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [
+      {
+        "file": "app/studio/forms.py",
+        "line_start": 98,
+        "line_end": 103,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The ClassCreationForm.full_clean() method always sets cleaned_data = {} regardless of whether there are errors or not. This breaks the expected Django form behavior where cleaned_data should contain validated field values when validation succeeds. While the docstring suggests this is intentional (backend handles validation), the code still calls full_clean() which is typically called automatically on bound forms, and setting cleaned_data to empty dict will break any code that expects cleaned_data to contain the submitted field values.",
+        "fix": "Remove the line 'self.cleaned_data = {}' from full_clean(), or conditionally set it only when there are errors: 'if self.submitted_errors: self.cleaned_data = {}'"
+      }
+    ],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "3840e8dd-19d7-4002-9d42-2ab74e56ba33",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "d80185ae-f483-4e59-a69e-74cc91d68010",
+        "tool_name": "list_files",
+        "tool_args": {
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "409f8456-d89b-40d9-95d7-b25110ac1d9b",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/__init__.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "6ff470d2-f87e-45c9-a6da-e548db4fdfe0",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/classes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "3e37b9e5-0cc0-4ded-923d-2d54ed6c5c09",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "ClassCreationForm",
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "f1ab3fdb-ad25-4954-b09d-641d4f793cd1",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/messages.py",
+          "start_line": 85,
+          "end_line": 100
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "06657de7-bb2d-475e-9d90-a6917566fa38",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "cleaned_data.*ClassCreationForm|ClassCreationForm.*cleaned_data",
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "63cacb21-7dfc-4bb5-8c18-5e8c51e92e5d",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/usecases/add_class.py"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 145.042,
+      "llm_calls": 10,
+      "tool_calls": 8,
+      "input_tokens": 86733,
+      "output_tokens": 2426
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:57:35+00:00"
+}

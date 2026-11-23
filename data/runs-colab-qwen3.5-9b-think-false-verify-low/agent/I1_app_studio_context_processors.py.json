@@ -1,0 +1,82 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/context_processors.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "e3f6d394-08d5-4ffc-86d7-61229de51a1e",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "class Role|Role\\.DANCER|Role\\.TEACHER|Role\\.STUDIO_HEAD_TEACHER",
+          "directory": "app/studio/backend"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "d221a6c2-d06d-49ba-b8d8-eda613273e78",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/roles.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "a436e3b6-85a4-4802-88d7-0e326297a786",
+        "tool_name": "search_code",
+        "tool_args": {
+          "directory": "app/studio/backend",
+          "pattern": "user\\.role|profile\\.role"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "78402878-9a94-4894-8246-2c3efe222165",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/accounts.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "75421631-388e-4cc3-b6ff-775d71a33d30",
+        "tool_name": "search_code",
+        "tool_args": {
+          "directory": "app/studio/models",
+          "pattern": "class User|role.*models\\.ForeignKey|role.*models\\.OneToOne"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "438ef44e-e56d-4d8f-9840-95c6f0d015b2",
+        "tool_name": "list_files",
+        "tool_args": {
+          "directory": "app/studio/models"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "7479d188-ffa6-4b7c-98ec-30a1fbfc91a9",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/accounts.py"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 46.861,
+      "llm_calls": 9,
+      "tool_calls": 7,
+      "input_tokens": 57164,
+      "output_tokens": 689
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:10:35+00:00"
+}

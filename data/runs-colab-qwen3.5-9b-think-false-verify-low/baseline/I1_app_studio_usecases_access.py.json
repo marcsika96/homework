@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/usecases/access.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/usecases/access.py",
+        "line_start": 49,
+        "line_end": 49,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The `htmx_login_redirect` function constructs the redirect URL by calling `redirect_to_login(next_page or '/', reverse('login'))['Location']`. The `redirect_to_login` function returns an `HttpResponseRedirect` object. Accessing its `.Location` attribute immediately after construction is correct, but the code then assigns this string to `response[",
+        "fix": "Change line 49 to: response[\"HX-Redirect\"] = redirect_to_login(next_page or \"/\", reverse(\"login\")).url"
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 8.41,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4362,
+      "output_tokens": 158
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:00:36+00:00"
+}

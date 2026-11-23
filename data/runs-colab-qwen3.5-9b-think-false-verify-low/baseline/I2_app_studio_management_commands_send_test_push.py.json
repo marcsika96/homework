@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/management/commands/send_test_push.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/management/commands/send_test_push.py",
+        "line_start": 1,
+        "line_end": 28,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The command sends push notifications to a user's devices without verifying that the logged-in user (if any) is authorized to do so. In a multi-user environment, this allows any developer running `python manage.py send_test_push <email>` to trigger notifications for any account, potentially spamming users or leaking device tokens.",
+        "fix": "Add a check at the beginning of `handle()` that verifies the user is logged in and has the required role (e.g., `Role.Staff` or a specific permission) before proceeding. If not authorized, raise `CommandError('This command requires staff privileges.')'."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 8.924,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 3757,
+      "output_tokens": 181
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:02:23+00:00"
+}

@@ -1,0 +1,50 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/backend/responses.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [
+      {
+        "file": "app/studio/backend/responses.py",
+        "line_start": 54,
+        "line_end": 54,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The code stores `confirmation_kind.value` (a string like 'classRegistered') in the session key `FLASHED_CONFIRMATION`. Later, `take_flashed_confirmation` reads this value and passes it to `ConfirmationKind(value)`. However, `ConfirmationKind` is a Django `TextChoices` class that expects the *label* (the translatable text), not the internal value. The constructor will fail because the string 'classRegistered' is not a valid choice for `ConfirmationKind`, which expects values like 'classRegistered' but the error message suggests it's looking for the label. Actually, looking more carefully at Django's TextChoices behavior: when you instantiate with a value that matches one of the choices, it works. But the issue is that we're storing the *value* attribute (which is correct), but then trying to reconstruct the object. The real problem is that `ConfirmationKind(value)` will work if `value` is one of the defined values. However, there's a subtle bug: when we store `confirmation_kind.value`, we get the string like 'classRegistered'. When we later do `ConfirmationKind(value)`, Django's TextChoices constructor will look for an item with that value and return it. This should work. But wait - looking at the code again, I see that `take_flashed_confirmation` returns `ConfirmationKind(value)` if value exists, else None. The issue is that this returns a `ConfirmationKind` object, but the caller in `pages.py:89` expects to use this somehow. Let me check how it's used... Actually, looking at the usage pattern, I think the real issue is different. The code stores the *value* attribute (the string identifier) in the session. When retrieving, it tries to reconstruct the object. This should work with Django's TextChoices. However, there's a potential race condition: if two requests happen between storing and reading the session value, one could overwrite the other. But more importantly, the code doesn't handle the case where the confirmation was already shown - it just pops the value. If the same user visits multiple pages, they might see the same confirmation multiple times if the session key isn't properly managed. Actually, looking at line 66: `request.session.pop(FLASHED_CONFIRMATION, None)` - this removes the key after reading, which is correct for showing it once. The real issue I'm seeing is that the code doesn't validate that the stored value actually corresponds to a valid ConfirmationKind before trying to construct it. While Django's TextChoices constructor should handle invalid values gracefully (returning an object with the given value), this could lead to unexpected behavior if the value was tampered with or corrupted. However, since we're using `pop` with a default of None, and then checking for None, this is handled. I think the main issue is actually simpler: the code assumes that any string in the session key corresponds to a valid ConfirmationKind value, but there's no validation. If someone manually sets the session key to an invalid value, it would create a ConfirmationKind object with that invalid value, which could cause issues downstream. This is a validation issue.",
+        "fix": "Add validation to ensure the stored value is a valid ConfirmationKind before constructing the object: `kind = ConfirmationKind(value) if value in ConfirmationKind.values else None`"
+      }
+    ],
+    "trace": [
+      {
+        "tool_call_id": "76aa9b3e-4aef-48e7-8bc8-6b03a9d1f3db",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/kinds.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "1df68761-1b20-478f-b9c2-fb3c269e5412",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "take_flashed_confirmation",
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 118.992,
+      "llm_calls": 4,
+      "tool_calls": 2,
+      "input_tokens": 24681,
+      "output_tokens": 2220
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:48:32+00:00"
+}

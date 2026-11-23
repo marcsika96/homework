@@ -1,0 +1,41 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/backend/notifications.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/notifications.py",
+        "line_start": 10,
+        "line_end": 12,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The constant `TIME_FORMATS` is defined with two formats: `\"%H:%M\"` and `\"%H:%M:%S\"`. The docstring for `parse_time_of_day` says it handles a \"HH:MM\" text. However, the second format `\"%H:%M:%S\"` expects seconds, which are not part of standard time inputs in this context (and likely not posted by the frontend). This makes the code misleading and potentially fragile if an input with seconds is ever passed; it would parse but might be semantically wrong for a \"time of day\" field that only stores minutes. The fix is to remove `\"%H:%M:%S\"` from `TIME_FORMATS`.",
+        "fix": "Remove `\"%H:%M:%S\"` from the `TIME_FORMATS` tuple, keeping only `\"%H:%M\"`. Update the docstring if needed to match."
+      },
+      {
+        "file": "app/studio/backend/notifications.py",
+        "line_start": 35,
+        "line_end": 36,
+        "category": "validation",
+        "severity": "medium",
+        "explanation": "The check `data.get(WINDOW_FIELD) not in NotificationWindow.values` is incorrect. `NotificationWindow.values` returns a tuple of the field's choices (e.g., ('today', 'tomorrow')), but `data.get(WINDOW_FIELD)` might be a string like 'today' or an integer if the model uses integers. More critically, if the model stores window values as integers (e.g., 0 for today, 1 for tomorrow), comparing against the tuple of choice labels will always fail validation. The correct check should compare against `NotificationWindow.choices` or the actual stored values in the model. Without seeing the model definition, this is a high-risk logic error that could cause false positives.",
+        "fix": "Change the validation to use `NotificationWindow.choices` (if available) or ensure the comparison is against the actual stored values. For example: `data.get(WINDOW_FIELD) not in [choice[0] for choice in NotificationWindow.choices]`."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 26.626,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 3894,
+      "output_tokens": 494
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:01:11+00:00"
+}

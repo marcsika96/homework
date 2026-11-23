@@ -63,6 +63,8 @@ Working notes for ReviewGraph. Decisions, problems and their fixes go here as th
 | 2026-11-23 | Me, with Claude Code | The change of `lookup` in `graph.py` (catch the unreadable answer, end the look-up with an `AIMessage` and a trace entry `unreadable_reply`): Claude gave the code in the chat with an explanation of each part, and I typed it in. |
 | 2026-11-23 | Ollama on Colab (`qwen3.5:9b`) | `eval --system baseline` on the 26 dev units (thinking off). |
 | 2026-11-23 | Claude Code | Checked the 35 baseline findings against the reviewed code one by one and grouped the false ones (section "Baseline dev run"); proposed the candidate prompt changes, none made yet. |
+| 2026-11-23 | Ollama on Colab (`qwen3.5:9b`) | `eval --system agent` on the 26 dev units (review without thinking, self-check "low"). |
+| 2026-11-23 | Claude Code | Checked the 23 draft findings of the agent (11 kept, 12 dropped) against the code, compared with the baseline and computed the latency numbers (section "Agent dev run"). |
 
 
 ## Decisions
@@ -277,6 +279,26 @@ What this means for 6.3 (nothing changed yet, because the agent run of section 9
 1. The agent's self-check and look-ups target exactly C, D and part of E (it can read the use case and the docstrings). The agent run shows how many of the 34 it removes; the agent without the self-check (kept plus dropped) shows what the look-ups alone change.
 2. Candidate prompt changes, one per experiment, general and not fitted to single units: (a) say where access checks live in this project and that functions below `usecases/` trust their callers; (b) "if your analysis ends in no defect, do not report it"; (c) the docstring of a changed function is its contract: a finding must show the code breaks it, not that it could be used wrongly. A change of `REVIEW_SYSTEM_PROMPT` changes the baseline too: bump `PROMPT_VERSION` and rerun both (the baseline costs 8 minutes).
 3. With one true finding on 26 units the dev set measures precision well but recall hardly at all (one known defect). Keep that in mind when reading dev numbers.
+## Agent dev run (2026-11-23, `qwen3.5:9b`, review without thinking, self-check "low")
+
+Colab T4, `PROMPT_VERSION` 1, budget 8, all 26 dev units: 26 stored, 0 failed. Stored in `data/runs-colab-qwen3.5-9b-think-false-verify-low/` together with the baseline run. Claude checked every finding against the code, as for the baseline; no judge.
+
+| | Baseline | Agent: drafts (no self-check) | Agent: kept |
+|---|---|---|---|
+| Findings | 35 | 23 | 11 |
+| True | 1 | 1 | 1 |
+| Units with an empty list | 1 of 26 | | 15 of 26 |
+| Known defect (I3 `database/classes.py`) | found | found | kept |
+| Latency median / p95 (s) | 14.6 / 40.7 | | 89.5 / 397.6 |
+| Model calls / tool calls | 26 / 0 | | 162 / 148 |
+| Tokens in / out | 115k / 9k | | 1,438k / 57k |
+
+1. **The look-ups alone remove a third of the findings (35 → 23 drafts), the self-check another half (23 → 11).** The self-check dropped 12 findings, all false, and kept the true one. Dropped were, among others, the docstring "syntax error" (I3 `evaluations.py`), the `['Location']` claim (I1 `access.py`), the `DoesNotExist` claim (I1 `transactions.py`) and the `TextChoices` claim (I3 `responses.py`).
+2. **The 10 false findings it kept**, in the groups of the baseline: C, contradicted by a docstring (I2 `forms.py` `full_clean` and `ErrorDict`, I3 `forms.py` `cleaned_data`, which even says "the docstring suggests this is intentional"); D, a check in the wrong layer (I2 `notification_preferences.py`, anonymous user, although it names the middleware; I2 `transactions.py`, storing without validation, which the use case does before); E, speculation or preference (I1 `passes.py` attributes on model instances, I2 `send_test_push` hard-coded kind, I2 `backend/pages.py` unused constants and "exposed" VAPID public key, I2 `database/notifications.py` `select_related` "unnecessary", I2 `backend/notifications.py` a missing window should be valid, I3 `backend/pages.py` a possible `KeyError`). So the self-check accepts a finding when the code does what the finding describes, even when the docstring says that is intended.
+3. **Precision on dev: baseline 1 of 35, agent 1 of 11.** Recall cannot be measured on dev (one known defect).
+4. **The self-check's reasons are not stored.** `ReviewResult` keeps only `findings` and `dropped`, so the reason of each verdict is lost, and "Not enough context:" cannot be counted, as the decision of 2026-11-16 intended. To fix before the next run.
+5. **Wasted look-ups:** 6 of 26 units started with `read_file("app/studio/models.py")`, which does not exist (the models are the package `app/studio/models/`); the answer "Did you mean app/studio/models?" cost one to three more calls (`list_files`, `models/__init__.py`). One `read_file` on the directory itself, and two searches in `django`, which is not in the repository. 13 units used the whole budget.
+6. **The four slow units** (I1 `passes.py` 373 s, I1 `sign_in.py` 461 s, I2 `database/notifications.py` 313 s, I3 `database/classes.py` 398 s) have 6,000-8,900 output tokens against about 1,000-2,000 elsewhere: most likely the thinking self-check running long (I1 `sign_in.py`, 8,925 tokens, is above the 8,192 budget, so one answer was cut off and asked again without thinking). The stats do not say which node produced the tokens.
 ## 5.2 checkpoint with a local model (2026-11-16/17)
 
 `reviewgraph review --repo C:/Work/dance-studio-webapp --commit 94725b9 --verbose` with `phi4-mini:3.8b-q4_K_M`, the second attempt after the `OLLAMA_NUM_PREDICT` fix (the first one got stuck, see Problems). Started about 22:30 through `scripts\run_awake.ps1`, finished 2026-11-17 00:22 with exit code 0. Log in `out\checkpoint-5.2.log`, reports in `out\94725b9\review.md` and `review.json` (not in git).

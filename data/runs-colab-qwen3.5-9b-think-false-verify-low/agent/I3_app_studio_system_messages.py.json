@@ -1,0 +1,58 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/system/messages.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [
+      {
+        "file": "app/studio/system/messages.py",
+        "line_start": 84,
+        "line_end": 97,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The function `display_class_details_error` now instantiates `ClassCreationForm(request.POST, errors=problems.invalid_fields)` and returns an error response. However, it does not check whether the form is valid before returning. The form's validation logic (including conflict checks) should have been performed earlier in the flow (likely in a sub-action or builder), but if this function is called directly with invalid data that hasn't been validated yet, it will still render the form with errors. This is acceptable per the docstring ('displays an error naming the invalid class details'), but there's a potential issue: the function doesn't check if `request.POST` contains valid data before passing it to the form constructor. If `request.POST` is empty or malformed, Django will raise a validation error during form instantiation. The fix is to ensure the form is only instantiated with valid POST data, or to handle the case where POST data is missing.",
+        "fix": "Add a check to ensure `request.POST` exists and is not empty before instantiating the form, or wrap the form instantiation in a try-except block to catch validation errors. Alternatively, pass an empty dict if POST is missing: `form = ClassCreationForm(request.POST or {}, errors=problems.invalid_fields)`."
+      }
+    ],
+    "trace": [
+      {
+        "tool_call_id": "ca4d9c15-789e-4ea5-be91-824448606d16",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/pages.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "e6200445-56dc-4832-beb9-0b741e6d9f4d",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/forms.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "11cf26ae-0af6-448a-958c-fa286ff6655a",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/messages.py",
+          "start_line": 100
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 92.798,
+      "llm_calls": 5,
+      "tool_calls": 3,
+      "input_tokens": 43972,
+      "output_tokens": 1355
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T16:00:28+00:00"
+}

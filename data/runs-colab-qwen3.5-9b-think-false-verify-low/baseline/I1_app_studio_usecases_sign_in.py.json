@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/usecases/sign_in.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/usecases/sign_in.py",
+        "line_start": 25,
+        "line_end": 26,
+        "category": "validation",
+        "severity": "high",
+        "explanation": "The code calls `invalid_credentials(email, request.POST.get(",
+        "fix": "Validate that both email and password are provided before calling `invalid_credentials`. For example:\n\n```python\nemail = request.POST.get(\"email\", \"\").strip()\npassword = request.POST.get(\"password\", \"\")\nif not email or not password:\n    return display_authentication_error(request, email)\nif invalid_credentials(email, password):\n    return display_authentication_error(request, email)\n```"
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 8.161,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4014,
+      "output_tokens": 159
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:00:44+00:00"
+}

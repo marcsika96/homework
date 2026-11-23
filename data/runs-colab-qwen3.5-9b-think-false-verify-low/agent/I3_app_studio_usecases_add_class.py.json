@@ -1,0 +1,90 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/usecases/add_class.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [
+      {
+        "file": "app/studio/usecases/add_class.py",
+        "line_start": 25,
+        "line_end": 34,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The function raises NotImplementedError for GET requests (lines 27-28 in the old code) but the new code returns a response from present_class_creation_form. However, the docstring on line 23 says 'POST: dswSystem.conflictOrInvalidData; then dswSystem.displayClassDetailsError, or dswSystem.addClassToSchedule' which is correct for POST, but the GET handling is incomplete - it should match the model's expected behavior. Looking at the old code, both GET and POST raised NotImplementedError. The new code handles GET correctly by returning the form, but the docstring on line 23 still describes only POST behavior, making it misleading.",
+        "fix": "Update the docstring to describe both GET and POST behaviors: 'GET: dswSystem.presentClassCreationForm; POST: dswSystem.conflictOrInvalidData; then dswSystem.displayClassDetailsError, or dswSystem.addClassToSchedule'."
+      }
+    ],
+    "trace": [
+      {
+        "tool_call_id": "e7134497-c756-43cb-9f77-252656f9a9eb",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/transactions.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "579a2111-b2fd-4f0f-992d-fd5526401e0e",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/evaluations.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "1b4bbf67-b2ca-49d6-bfcc-80dd6ae1276d",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/messages.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "11c1a7a8-4ad4-4f1e-9c22-93016ff34f25",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/page_views.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "a0b87b1a-5faa-4208-87cf-3f5f6d274c26",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/database/classes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "0cc54861-72d1-4dea-bd27-2cbffeb4d6bd",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/classes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "b4a837b5-afb6-4160-8b54-19437755a639",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/classes.py",
+          "start_line": 201
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 133.589,
+      "llm_calls": 7,
+      "tool_calls": 7,
+      "input_tokens": 122853,
+      "output_tokens": 1321
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T16:03:57+00:00"
+}

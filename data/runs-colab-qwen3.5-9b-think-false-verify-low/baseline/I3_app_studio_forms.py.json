@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/forms.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/forms.py",
+        "line_start": 68,
+        "line_end": 72,
+        "category": "validation",
+        "severity": "medium",
+        "explanation": "The `class_type` field uses a `ModelChoiceField` with a queryset of `ClassType.objects`. This is incorrect because the form should not allow creating a class for a class type that does not exist in the database yet (e.g., if the model is being updated or if there's a race condition). More importantly, according to AGENTS.md rules, validation logic should be handled by the backend (`dswSystem.conflictOrInvalidData`), and the form should only render fields. However, using a `ModelChoiceField` with a queryset implies that the class type must already exist in the database, which might not be the case if the model is being updated or if there's a race condition. This could lead to validation errors or incorrect behavior.",
+        "fix": "Change `class_type = forms.ModelChoiceField(...)` to `class_type = forms.ChoiceField(choices=[...])` and populate the choices from a static list or another source that doesn't depend on the database state."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 15.116,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4463,
+      "output_tokens": 242
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:05:41+00:00"
+}

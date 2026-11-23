@@ -1,0 +1,89 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/database/classes.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [
+      {
+        "file": "app/studio/database/classes.py",
+        "line_start": 52,
+        "line_end": 54,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The ExpressionWrapper uses output_field=DurationField() but the expression F('starts_at') + F('series__duration_minutes') * ONE_MINUTE evaluates to a datetime (datetime + timedelta = datetime), not a duration. This type mismatch can cause Django to mishandle the query, potentially returning incorrect results (including classes that have ended) or crashing.",
+        "fix": "Change output_field=DurationField() to output_field=models.DateTimeField() or omit it entirely."
+      }
+    ],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "91ae9e7f-8097-4eb3-89e1-71d52c59de0a",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "a7de41bd-0f47-45b7-8457-41a0e6cfdb22",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/seed_data.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "eb324dab-cfa9-483f-99b4-a2de23d82f2d",
+        "tool_name": "list_files",
+        "tool_args": {
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "5ec8c6ae-38c7-4e23-9ae6-22c7dda8d7ef",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/classes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "d3c9cb0f-236d-4ebb-8b1d-5d2a4d38af29",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/__init__.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "e63f3b69-e540-4d61-93a8-6b968110b48b",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/settings.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "21cdd33f-3fb8-4857-9a38-6ae329092839",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/migrations/0002_seed_data.py"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 397.569,
+      "llm_calls": 9,
+      "tool_calls": 7,
+      "input_tokens": 102195,
+      "output_tokens": 7502
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:55:10+00:00"
+}

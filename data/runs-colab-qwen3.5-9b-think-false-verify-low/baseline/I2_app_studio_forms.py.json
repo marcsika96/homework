@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/forms.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/forms.py",
+        "line_start": 49,
+        "line_end": 54,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The `full_clean` method is overridden to bypass Django's standard validation and instead inject pre-existing errors from the backend. However, it sets `self.cleaned_data = {}`, which is incorrect because `cleaned_data` should contain the valid field values (e.g., `daily_notification_time`) after successful validation. By clearing it, any subsequent code that relies on `form.cleaned_data` to save preferences or process the form will fail or behave incorrectly.",
+        "fix": "Remove the line `self.cleaned_data = {}`. Instead, call `super().full_clean()` if you want standard validation, or ensure that valid data is preserved in `cleaned_data` after injecting errors. Since the docstring says 'Takes the errors from the backend', it implies validation has already happened elsewhere; thus, only inject errors without clearing cleaned_data: replace with `self._errors = ErrorDict(); for name, messages in self.submitted_errors.items(): self._errors[name] = self.error_class(messages)` and remove `self.cleaned_data = {}`."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 12.56,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4078,
+      "output_tokens": 249
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:02:14+00:00"
+}

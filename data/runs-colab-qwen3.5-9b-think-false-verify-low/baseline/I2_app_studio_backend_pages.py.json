@@ -1,0 +1,41 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/backend/pages.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/pages.py",
+        "line_start": 107,
+        "line_end": 122,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The function `notification_preferences_context` accesses `preferences.account.role` without checking if `preferences.account` exists. If the user has no account (e.g., a guest or an incomplete registration), this will raise an `AttributeError`. This is a data access error that can crash the request and expose internal errors to users.",
+        "fix": "Add a guard: check if `preferences.account` is not None before accessing `.role`, and handle the missing account case (e.g., treat as non-dancer or redirect)."
+      },
+      {
+        "file": "app/studio/backend/pages.py",
+        "line_start": 107,
+        "line_end": 122,
+        "category": "validation",
+        "severity": "medium",
+        "explanation": "The function `notification_preferences_context` does not validate the `data` and `errors` arguments. If they are missing or malformed, the `NotificationPreferencesForm` may behave unexpectedly (e.g., raise an error or render incorrectly). This can lead to incorrect form rendering or unexpected behavior.",
+        "fix": "Validate that `data` is a dict-like object and `errors` is None or a dict before passing them to the form constructor."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 15.155,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4376,
+      "output_tokens": 297
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:01:26+00:00"
+}

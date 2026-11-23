@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/usecases/notification_preferences.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/usecases/notification_preferences.py",
+        "line_start": 48,
+        "line_end": 48,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The code checks `request.user.role == Role.DANCER` to decide whether to read the `window` field from POST data. This check assumes that only Dancers can have a notification window preference, but it does not verify that the user is actually allowed to change their own preferences or that they are authenticated. If an unauthenticated request somehow reaches this code (e.g., due to middleware misconfiguration), or if a non-Dancer role tries to access this endpoint, the behavior is undefined because `request.user` might be an anonymous user object without a `role` attribute or with a different value. This could lead to incorrect data being saved or an exception when accessing `request.POST[WINDOW_FIELD]` for users who shouldn't have that field.",
+        "fix": "Add an explicit check that the user is authenticated and has a valid role before accessing `request.user.role`. For example: `if not request.user.is_authenticated: return display_notification_preferences_error(request, request.POST, [\"User must be logged in.\"])` followed by the existing role check. Also ensure that only users with appropriate permissions (e.g., Dancers or Admins) can modify their notification preferences."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 14.12,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4149,
+      "output_tokens": 280
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:03:57+00:00"
+}

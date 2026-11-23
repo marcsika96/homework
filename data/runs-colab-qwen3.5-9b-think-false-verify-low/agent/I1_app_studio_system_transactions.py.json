@@ -1,0 +1,58 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/system/transactions.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [
+      {
+        "file": "app/studio/system/transactions.py",
+        "line_start": 143,
+        "line_end": 145,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The code calls `get_user_model().objects.get_by_natural_key(email)` without checking if the user exists first. If no account with that email exists, this raises a `DoesNotExist` exception which is not caught, causing a crash instead of a proper error response. Additionally, there is no validation that the email parameter is provided or valid.",
+        "fix": "Add a try-except block to handle `DoesNotExist` and return an appropriate error response, or validate that the email parameter exists before calling get_by_natural_key."
+      }
+    ],
+    "trace": [
+      {
+        "tool_call_id": "b3054110-25c4-4d08-9e0b-c7496c8ff254",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/pages.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "77e91a71-d567-436a-9dbf-9fa6adaf9eb0",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/database/notifications.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "ba30bfde-6361-4078-bd93-478bf882a585",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "get_by_natural_key",
+          "directory": "app/studio/models"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 64.783,
+      "llm_calls": 4,
+      "tool_calls": 3,
+      "input_tokens": 27372,
+      "output_tokens": 1055
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:18:31+00:00"
+}

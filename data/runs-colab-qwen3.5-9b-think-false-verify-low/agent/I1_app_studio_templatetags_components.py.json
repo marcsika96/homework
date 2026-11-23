@@ -1,0 +1,39 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/templatetags/components.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "4700eb7d-392a-41c3-b9be-db8848e51cdf",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/templates/studio/components/card.html"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "162823e4-78fd-4f56-a394-25114e1aefe0",
+        "tool_name": "list_files",
+        "tool_args": {
+          "directory": "app/studio/templates/studio/components"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 16.491,
+      "llm_calls": 3,
+      "tool_calls": 2,
+      "input_tokens": 13787,
+      "output_tokens": 236
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:18:48+00:00"
+}

@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/backend/pages.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/pages.py",
+        "line_start": 32,
+        "line_end": 39,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The `serve_main_page` function accepts `profile`, `passes`, and `registrations` as arguments without verifying that the current user owns them. This allows any authenticated user to view another dancer's passes and registrations by passing their data directly, violating the principle of least privilege and exposing private user data.",
+        "fix": "Add a check at the beginning of `serve_main_page` to ensure the session belongs to the same user as the provided `profile`. If not, raise a 403 Forbidden error or redirect to an unauthorized page."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 12.445,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4021,
+      "output_tokens": 163
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T14:59:18+00:00"
+}

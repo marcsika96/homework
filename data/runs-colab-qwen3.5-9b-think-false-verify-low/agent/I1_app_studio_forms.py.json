@@ -1,0 +1,99 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/forms.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "8c6eef20-e734-4eb9-8a83-c5fada2ae4c8",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "LoginForm",
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "18f0c15e-9597-4a7c-a1dd-25351ed51d4f",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "invalidCredentials",
+          "directory": "app/studio"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "28af17fb-9caa-4e6e-9d36-8adbba20e221",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "login.*form|LoginForm",
+          "directory": "app/studio/usecases"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "8099b052-62f3-4233-bb77-914c26e97ada",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/pages.py",
+          "start_line": 1,
+          "end_line": 30
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "5366c644-d90b-4524-9a58-4e3344908f2f",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/evaluations.py",
+          "start_line": 1,
+          "end_line": 50
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "12ca5fdb-eeb1-4101-b3d4-382c2770382f",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/transactions.py",
+          "start_line": 130,
+          "end_line": 170
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "a9c59e8e-72e4-4604-bafa-43c34073f375",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/system/messages.py",
+          "start_line": 1,
+          "end_line": 30
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "81f2e777-6c70-4426-87d9-df57aa6aa8a6",
+        "tool_name": "search_code",
+        "tool_args": {
+          "directory": "app/studio",
+          "pattern": "def.*login|@.*login_required"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 37.54,
+      "llm_calls": 4,
+      "tool_calls": 8,
+      "input_tokens": 24216,
+      "output_tokens": 545
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:17:26+00:00"
+}

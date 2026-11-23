@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/system/evaluations.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/system/evaluations.py",
+        "line_start": 139,
+        "line_end": 140,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The docstring for `conflict_or_invalid_data` is split incorrectly across lines 138–141. Line 138 ends with a closing triple-quote, but line 139 starts a new sentence that belongs to the same docstring, and line 140 continues it. This breaks Python syntax because the string literal is closed prematurely at line 138, making lines 139–141 invalid code.",
+        "fix": "Move the closing triple-quote to the end of line 141, so the entire docstring text spans lines 128–141 without interruption."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 12.719,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4641,
+      "output_tokens": 176
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:05:54+00:00"
+}

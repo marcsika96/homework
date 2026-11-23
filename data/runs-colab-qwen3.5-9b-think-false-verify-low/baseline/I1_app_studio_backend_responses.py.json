@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/backend/responses.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/responses.py",
+        "line_start": 12,
+        "line_end": 12,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The code assumes that only `ErrorKind.ACCESS_DENIED` maps to a 403 status code. However, other error kinds (e.g., `ErrorKind.VALIDATION_ERROR`, `ErrorKind.NOT_FOUND`) should also map to appropriate HTTP status codes (400, 404, etc.). The current logic defaults all unspecified error kinds to 400, which is correct for validation errors but incorrect for access denied (which should be 403). This could lead to incorrect HTTP status codes being returned for certain error types if the mapping is incomplete or if new error kinds are added without updating this dictionary.",
+        "fix": "Expand the `ERROR_STATUS` dictionary to include mappings for all relevant `ErrorKind` values with their appropriate HTTP status codes (e.g., `ErrorKind.VALIDATION_ERROR: 400`, `ErrorKind.NOT_FOUND: 404`)."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 13.506,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4002,
+      "output_tokens": 239
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T14:59:31+00:00"
+}

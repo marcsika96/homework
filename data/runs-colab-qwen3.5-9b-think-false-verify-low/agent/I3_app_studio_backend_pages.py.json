@@ -1,0 +1,76 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/backend/pages.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [
+      {
+        "file": "app/studio/backend/pages.py",
+        "line_start": 86,
+        "line_end": 87,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The code assumes `registration_counts` is a dictionary keyed by `occurrence.pk`, but the function signature shows it receives `classes` (a list of occurrences) and `registration_counts`. The list comprehension iterates over `classes` and uses `occurrence.pk` to index into `registration_counts`. If `classes` is not ordered such that their indices match the keys in `registration_counts`, or if `registration_counts` is keyed by something else, this will raise a KeyError. More critically, the function signature shows `def serve_teacher_schedule_page(request, classes, registration_counts):` but the original stub had no parameters. The new implementation expects these arguments to be passed from somewhere (likely a view that calls this), but there's no evidence in the change of how these are populated or validated. If called with wrong types/keys, it crashes.",
+        "fix": "Ensure `classes` and `registration_counts` are properly aligned before use, or change the logic to not rely on positional alignment."
+      }
+    ],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "b6c2c422-11f3-47a8-b21c-1a25f31e5bf9",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "requested_range|calendar_event",
+          "directory": "app/studio/backend"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "afd6efe5-9ab1-428f-8291-ffc4858344cf",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "is_panel_request|take_flashed_confirmation",
+          "directory": "app/studio/backend"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "3b43f772-39c9-4063-9176-e4abd261c80a",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "ClassCreationForm",
+          "directory": "app/studio/forms"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "070afbb5-611d-414a-95e5-063e73ff4671",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/responses.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "4df40d5f-6b60-4327-8b28-81d6e2bb0724",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/forms.py"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 86.117,
+      "llm_calls": 5,
+      "tool_calls": 5,
+      "input_tokens": 38630,
+      "output_tokens": 1335
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:46:33+00:00"
+}

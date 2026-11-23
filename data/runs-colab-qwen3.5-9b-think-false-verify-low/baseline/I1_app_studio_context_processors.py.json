@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/context_processors.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/context_processors.py",
+        "line_start": 4,
+        "line_end": 23,
+        "category": "project-rule",
+        "severity": "low",
+        "explanation": "The code imports `studio.backend.roles` and uses `Role.DANCER`, `Role.TEACHER`, `Role.STUDIO_HEAD_TEACHER`. According to AGENTS.md, the model is the source of truth; when code and model disagree, change the model first. The file references a Python enum `Role` that must exist in `studio.backend.roles`. If this module or enum does not exist (as implied by the stub nature of Phase 1/2), this breaks traceability and potentially runtime import. However, since we cannot see `studio/backend/roles.py`, we cannot confirm it is missing. Assuming it exists as per project structure, no defect.",
+        "fix": "None required if `studio.backend.roles` exists with those constants. If not, add the enum to `studio/backend/roles.py` and update imports accordingly."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 11.407,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 3825,
+      "output_tokens": 210
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T14:59:43+00:00"
+}

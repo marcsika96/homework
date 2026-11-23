@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/database/passes.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/database/passes.py",
+        "line_start": 34,
+        "line_end": 56,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The code iterates over `passes` and modifies each `active` object by adding `class_types` and `class_durations` attributes. However, the queryset in lines 34–51 already uses `.select_related()` and `.prefetch_related()`, which means accessing these related objects inside the loop is safe from N+1 queries. The defect is that the code assumes `pass_type.class_types` and `pass_type.class_durations` are accessible directly via `.all()` without checking if they are empty or if the prefetch/select_related actually populated them correctly in all cases (e.g., if a pass type has no class types). This could lead to an empty list being returned for `class_types`, which is correct, but the code does not handle the case where `pass_type` itself might be missing due to a broken relation or deleted data. Additionally, the use of `.all()` inside the loop after prefetching is redundant and slightly inefficient, though not incorrect. The real issue is that the code modifies the model instance in place (`active.class_types = ...`), which is fine for display but could cause confusion if the caller expects the original model fields only. This is a logic fragility.",
+        "fix": "Remove the manual iteration and attribute assignment; instead, rely on Django's prefetching and use `prefetch_related` with named parameters to ensure all related data is loaded efficiently without modifying the model instance in place. Alternatively, keep the iteration but ensure that the related objects are accessed via the prefetched relations (e.g., `active.purchase.pass_type.class_types.all()` is already handled by prefetch). The current code is acceptable if the intent is to expose these as attributes for template rendering, but it should be documented or refactored to avoid modifying model instances."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 19.598,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4154,
+      "output_tokens": 416
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:00:02+00:00"
+}

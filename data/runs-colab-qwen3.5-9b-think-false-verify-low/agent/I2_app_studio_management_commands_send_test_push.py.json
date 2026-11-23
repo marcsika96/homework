@@ -1,0 +1,97 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/management/commands/send_test_push.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [
+      {
+        "file": "app/studio/management/commands/send_test_push.py",
+        "line_start": 26,
+        "line_end": 27,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The command hard-codes `NotificationKind.DAILY_CLASS_SUMMARY` as the test message kind (line 26), but a 'test push' should be generic or configurable. This means every run sends the same 'daily class summary' message regardless of what the developer intended to test, which is misleading and limits testing flexibility.",
+        "fix": "Make the notification kind an argument to `add_arguments` and use it in `handle`, defaulting to `NotificationKind.DAILY_CLASS_SUMMARY` for backward compatibility."
+      }
+    ],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "038fff85-4559-49b9-a082-3198e2c250df",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/push.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "9e3d0f48-d97e-41a2-a174-8287959955ca",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/database/notifications.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "2be81b7a-b40d-4ffb-a803-db9124d2b1bf",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "52f57f81-1c92-4561-bf2e-c8f1bc7583da",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "0cbbfa5a-bc38-4218-908e-c5bd7b49e064",
+        "tool_name": "list_files",
+        "tool_args": {
+          "directory": "app/studio/models"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "5675b092-a0ae-4ebb-9fd2-07cff4f39f2c",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/accounts.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "c551c303-a4d6-4627-af58-c38dde21b4a3",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/__init__.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "b9f5c050-c9be-4835-8c8f-67dbfcf44e66",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/kinds.py"
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 73.582,
+      "llm_calls": 7,
+      "tool_calls": 8,
+      "input_tokens": 57660,
+      "output_tokens": 937
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:40:16+00:00"
+}

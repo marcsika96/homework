@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/backend/push.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/push.py",
+        "line_start": 62,
+        "line_end": 63,
+        "category": "validation",
+        "severity": "high",
+        "explanation": "The code passes `settings.VAPID_PRIVATE_KEY` and `settings.VAPID_SUBJECT` directly to the `webpush()` function without validating that they are set. If these settings are missing or empty (e.g., in a development environment where they might not be configured), the push notification will fail with an error or send notifications with invalid credentials, potentially causing security issues or incorrect behavior.",
+        "fix": "Add validation checks before calling `webpush()`. Ensure `settings.VAPID_PRIVATE_KEY` and `settings.VAPID_SUBJECT` are set and non-empty. Raise a clear error or skip sending the push if they are not configured."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 9.702,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4633,
+      "output_tokens": 171
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:01:35+00:00"
+}

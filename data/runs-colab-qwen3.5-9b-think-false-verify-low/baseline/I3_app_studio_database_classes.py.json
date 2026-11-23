@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/database/classes.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/database/classes.py",
+        "line_start": 52,
+        "line_end": 64,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The filter `ends_at_time__gt=timezone.now()` uses a raw field comparison against a Python datetime object. Django's ORM does not automatically convert the Python `datetime` to a database-compatible value for this expression, and `ExpressionWrapper` with `output_field=DurationField()` is incorrect because it produces a duration (timedelta), not a timestamp. This causes either a runtime error or returns no rows when classes are scheduled in the future.",
+        "fix": "Replace the `ExpressionWrapper` with a proper `F`-expression that adds minutes to `starts_at` and compare against `timezone.now()`. Example:\n```python\nfrom django.db.models import F, Q\nends_at = F(\"starts_at\") + (details.duration_minutes * ONE_MINUTE)\nclasses = (\n    _with_series()\n    .filter(series__teacher=teacher, canceled_at__isnull=True, ends_at__gt=timezone.now())\n)\n```"
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 17.265,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 6134,
+      "output_tokens": 238
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:05:26+00:00"
+}

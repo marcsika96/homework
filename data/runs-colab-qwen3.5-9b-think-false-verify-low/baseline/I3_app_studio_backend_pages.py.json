@@ -1,0 +1,32 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/backend/pages.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/backend/pages.py",
+        "line_start": 86,
+        "line_end": 91,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The function `serve_teacher_schedule_page` assumes that `classes` is a list of class occurrences and that `registration_counts` is a dictionary keyed by `occurrence.pk`. However, the function signature does not validate these arguments. If called with incorrect types (e.g., `classes` being None or an empty dict), line 87 will raise an AttributeError when trying to access `.pk` on non-occurrence objects or KeyError if `registration_counts` lacks a key. This causes a crash instead of graceful handling.",
+        "fix": "Add validation at the start of `serve_teacher_schedule_page` to ensure `classes` is iterable and contains valid occurrences, and that `registration_counts` is a dict with integer keys matching occurrence pk values. Raise a 400 error if validation fails."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 15.278,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 5457,
+      "output_tokens": 201
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:04:53+00:00"
+}

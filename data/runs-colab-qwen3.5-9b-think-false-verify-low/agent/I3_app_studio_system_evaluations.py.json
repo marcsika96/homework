@@ -1,0 +1,58 @@
+{
+  "result": {
+    "unit_id": "I3:app/studio/system/evaluations.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [],
+    "dropped": [
+      {
+        "file": "app/studio/system/evaluations.py",
+        "line_start": 139,
+        "line_end": 141,
+        "category": "logic",
+        "severity": "high",
+        "explanation": "The docstring for `conflict_or_invalid_data` is split across lines 138-141. Line 138 ends with a closing triple-quote `\"\"\"`, but the actual docstring content continues on line 139 and 140, which are inside the string. This causes a Python syntax error: an unterminated string literal (or at least a malformed docstring). The code will not run.",
+        "fix": "Move the closing triple-quote to the end of line 141, after the text 'checked details and occurrences for addClassToSchedule, so they are derived once.'"
+      }
+    ],
+    "trace": [
+      {
+        "tool_call_id": "29e5166b-fd50-43cd-8976-9424d8eda894",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/classes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "76715e7b-e55c-4ee2-bdf9-f609437f7893",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/database/classes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "12e62cb6-f3ef-4e88-8a6c-d69e6ac5d5d5",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/backend/classes.py",
+          "start_line": 201
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 80.028,
+      "llm_calls": 5,
+      "tool_calls": 3,
+      "input_tokens": 52626,
+      "output_tokens": 896
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:58:55+00:00"
+}

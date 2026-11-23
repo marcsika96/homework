@@ -1,0 +1,59 @@
+{
+  "result": {
+    "unit_id": "I2:app/studio/database/notifications.py",
+    "system": "baseline",
+    "model": "qwen3.5:9b, reasoning false",
+    "findings": [
+      {
+        "file": "app/studio/database/notifications.py",
+        "line_start": 20,
+        "line_end": 23,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The function `retrieve_notification_preferences` returns all `NotificationPreference` objects when `user=None`. This allows any code path (including unauthenticated or unauthorized contexts) to read every user's notification preferences. The docstring claims it is for the scheduler, but there is no authentication check before returning the list.",
+        "fix": "Add a guard that raises an error or returns an empty list if called without a valid authenticated session, unless this function is explicitly marked as safe for system use (which requires a separate design decision)."
+      },
+      {
+        "file": "app/studio/database/notifications.py",
+        "line_start": 32,
+        "line_end": 34,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The function `store_notification_preferences` updates the preferences of any account that matches the provided `user`. If `user` is not authenticated or is an attacker's session, they can change another user's notification settings. There is no check that the caller is authorized to modify this user's data.",
+        "fix": "Ensure that `user` is authenticated and belongs to the current session before performing the update."
+      },
+      {
+        "file": "app/studio/database/notifications.py",
+        "line_start": 42,
+        "line_end": 42,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The function `retrieve_push_subscriptions` filters by `account__in=recipients`. If `recipients` contains an attacker's ID or a list of IDs that includes unauthorized accounts, the function will return those users' push subscriptions. There is no check that the caller is authorized to read these subscriptions.",
+        "fix": "Add authorization checks to ensure the caller can access each recipient in `recipients`."
+      },
+      {
+        "file": "app/studio/database/notifications.py",
+        "line_start": 54,
+        "line_end": 57,
+        "category": "authorization",
+        "severity": "high",
+        "explanation": "The function `store_push_subscription` updates or creates a push subscription for the given `user`. If `user` is not authenticated or is an attacker's session, they can register a push subscription under another user's account. There is no check that the caller is authorized to manage this user's subscriptions.",
+        "fix": "Ensure that `user` is authenticated and belongs to the current session before performing the update."
+      }
+    ],
+    "dropped": [],
+    "trace": [],
+    "stats": {
+      "latency_s": 26.041,
+      "llm_calls": 1,
+      "tool_calls": 0,
+      "input_tokens": 4412,
+      "output_tokens": 549
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": null,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:02:02+00:00"
+}

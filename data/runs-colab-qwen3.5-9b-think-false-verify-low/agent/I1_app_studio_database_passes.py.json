@@ -1,0 +1,86 @@
+{
+  "result": {
+    "unit_id": "I1:app/studio/database/passes.py",
+    "system": "agent",
+    "model": "qwen3.5:9b, reasoning false, verifier low",
+    "findings": [
+      {
+        "file": "app/studio/database/passes.py",
+        "line_start": 54,
+        "line_end": 56,
+        "category": "logic",
+        "severity": "medium",
+        "explanation": "The code sets `active.class_types` and `active.class_durations` as dynamic attributes on the Pass model instances. While this works for display purposes in a view function, it violates Django ORM conventions where model fields should be defined in the model class. This can cause issues with serialization, admin interfaces, or any code expecting standard model fields. Additionally, the inconsistency between `class_types` (list of model instances) and `class_durations` (list of integers) may lead to unexpected behavior if consumers expect uniform data types.",
+        "fix": "Add `class_types` and `class_durations` as proper model fields in the Pass model class in app/studio/models/passes.py, or refactor the function to return a dictionary with standardized field names instead of modifying model instances directly."
+      }
+    ],
+    "dropped": [],
+    "trace": [
+      {
+        "tool_call_id": "82baa2c6-aff6-4622-b5ca-90d60a432405",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "78084096-6960-4116-8b7a-1c1b4c03e5c2",
+        "tool_name": "search_code",
+        "tool_args": {
+          "pattern": "class Pass",
+          "directory": "app/studio/models"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "15568041-bea3-4017-ade4-186d57fbc8cb",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/passes.py"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "6bf0055f-e8f5-404b-a51c-43ca399bd21c",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/passes.py",
+          "start_line": 201
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "9b817f2e-5202-4c33-acc6-1427934ef3cc",
+        "tool_name": "search_code",
+        "tool_args": {
+          "directory": "app/studio/models",
+          "pattern": "class ClassRegistration|class WaitingListEntry"
+        },
+        "status": "executed"
+      },
+      {
+        "tool_call_id": "5a68517c-8a0f-423c-9f31-916c40d5bdfa",
+        "tool_name": "read_file",
+        "tool_args": {
+          "path": "app/studio/models/classes.py",
+          "start_line": 135,
+          "end_line": 200
+        },
+        "status": "executed"
+      }
+    ],
+    "stats": {
+      "latency_s": 373.385,
+      "llm_calls": 8,
+      "tool_calls": 6,
+      "input_tokens": 71117,
+      "output_tokens": 7398
+    },
+    "error": null
+  },
+  "prompt_version": "1",
+  "max_tool_calls": 8,
+  "code_version": "37e954f365fdb5048144a0a7e307d317d93314a1",
+  "timestamp": "2026-11-23T15:16:49+00:00"
+}
