@@ -156,6 +156,25 @@ def test_with_a_budget_of_two_the_third_tool_call_gets_the_budget_message(tiny_r
     assert state["findings"] == [make_finding(7)] and state["dropped"] == [make_finding(3)]
 
 
+def test_self_check_uses_the_verifier_model_and_the_review_does_not(tiny_repo, monkeypatch):
+    # The verifier variant (OLLAMA_VERIFY_REASONING) as its own scripted model, so
+    # the test sees which model each node called.
+    verdict = Verification(supported=True, reason="Scripted verdict.")
+    verifier = ScriptedChatModel(replies=[verdict, verdict])
+    monkeypatch.setattr("reviewgraph.graph.verifier_model", lambda model: verifier)
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="Nothing to look up."),
+        ReviewOutput(findings=[make_finding(3), make_finding(7)]),
+    ])
+
+    graph = build_graph(model, tiny_repo.repo, tiny_repo.second_sha, max_tool_calls=BUDGET)
+    state = graph.invoke({"commit": tiny_repo.second_sha, "path": VIEWS})
+
+    assert len(model.received) == 2         # the look-up and the findings
+    assert len(verifier.received) == 2      # one self-check per draft finding
+    assert state["findings"] == [make_finding(3), make_finding(7)]
+
+
 def test_self_check_gets_a_fresh_context_with_the_code_around_the_finding(tiny_repo):
     state, model = scripted_run(tiny_repo, max_tool_calls=8)
 
